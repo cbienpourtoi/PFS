@@ -16,7 +16,7 @@ from numpy.random import normal
 def main():
 
 #  Opening Millennium Run lightcone catalog in fits format 
-  path = './'
+  path = './data/'
   conename = path + 'wmap1_bc03_001_igm1.fits'
   hdulist = pyfits.open(conename)
   cone = hdulist[1].data
@@ -33,6 +33,9 @@ def main():
 
   #print the values of column named 'Z_APP' (redshift):
   print cone['Z_APP']
+  
+  
+  
 
   #print the highest star formation rate in the catalog:
   print max(cone['SFR'])
