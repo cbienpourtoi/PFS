@@ -166,7 +166,11 @@ for i in [1,2,3,4,5]:
 	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
 	plt.scatter(cone[selection_properties['Filter2'][i]] - cone[selection_properties['Filter3'][i]], cone[selection_properties['Filter1'][i]] - cone[selection_properties['Filter2'][i]],c=cone['Z_APP'],vmin=selection_properties['z'][i]-1,vmax=selection_properties['z'][i]+1,cmap=plt.cm.spectral)
-	cbar = plt.colorbar() 
+	cbar = plt.colorbar()
+
+############ label cbar ???
+
+	cbar.set_label('z') 
 	plt.plot([-1., endH], [limitH, limitH], '-b')
 	plt.plot([limitV, limitV], [endV, 8.5], '-b')
 	plt.plot([endH, limitV], [limitH, endV], '-b')
