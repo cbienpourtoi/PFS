@@ -34,6 +34,7 @@ def savemyplot(name):
 	fig.savefig(plot_directory+name+plot_extension)
 	return
 
+print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
 """
 Table of redshift bins, properties, limit magnitudes and selection filters
@@ -63,28 +64,26 @@ conepath = "./data/lightcones/"
 conename = "wmap1_bc03_"+str(file_number).zfill(3)+"_igm1.fits"
 
 hdulist = fits.open(conepath+conename)
-cone = hdulist[1].data
+allcone = hdulist[1].data
 cols = hdulist[1].columns
 hdulist.close()
 
 
-print "There are "+str(len(cone))+" objects in the cone."
+print "There are "+str(len(allcone))+" objects in the cone."
 
 """
 Just playing with the files: z distribution.
 """
-
-'''
+"""
 fig = plt.figure()
 plt.title("Redshift distribution for the lightcone")
 plt.xlabel("Apparent Redshift (Z_APP)")
 plt.ylabel("#")
-plt.hist(cone_z2['Z_APP'], bins=200)
+plt.hist(cone['Z_APP'], bins=200)
 plt.show()
 savemyplot("z_dist")
 plt.close()
-'''
-
+"""
 
 
 """
@@ -92,55 +91,105 @@ Redshift and limit magnitude selection
 """
 
 #for i in np.arange(len(selection_properties)):
-for i in [1]:
-	print "redshift: " + str(selection_properties['z'][i])
-	mask_z = np.abs( cone.field('Z_APP') - selection_properties['z'][i] ) < dz
-	mask_mag = cone.field(selection_properties['Filter3'][i]) < selection_properties['LimitMag'][i]
+for i in [1,2,3,4,5]:
+	print "redshift: ~" + str(selection_properties['z'][i]) + ". Filters : " + str(selection_properties['Filter1'][i]) +" "+ str(selection_properties['Filter2'][i]) +" "+ str(selection_properties['Filter3'][i])
+	mask_z = np.abs( allcone.field('Z_APP') - selection_properties['z'][i] ) < dz
+	mask_mag = allcone.field(selection_properties['Filter3'][i]) < selection_properties['LimitMag'][i]
 	mask = mask_mag #& mask_z
 	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
-# selecting all objects with z>2 takes 20 min
-cone_z2 = cone[mask]
+	# selecting all objects with z>2 takes 20 min
+	cone = allcone[mask]
 
-print "Number of candidates : " + str(len(cone_z2))
+	print "Number of candidates with mag["+str(selection_properties['Filter3'][i])+"]>"+str(selection_properties['LimitMag'][i])+": " + str(len(cone))
 
-print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
-fig = plt.figure()
-plt.title("Redshift vs Redder Magnitude")
-plt.xlabel("Apparent Redshift (Z_APP)")
-plt.ylabel("Magnitude in redder color (?)")
-plt.hist2d(cone_z2['Z_APP'], cone_z2[selection_properties['Filter3'][i]], bins=1000)
-plt.show()
-savemyplot("z_vs_mag")
-plt.close()
+	"""
+	fig = plt.figure()
+	plt.title("Redshift vs Redder Magnitude")
+	plt.xlabel("Apparent Redshift (Z_APP)")
+	plt.ylabel("Magnitude in redder color (?)")
+	plt.hist2d(cone['Z_APP'], cone[selection_properties['Filter3'][i]], bins=1000)
+	plt.show()
+	savemyplot("z_vs_mag")
+	plt.close()
+	"""
 
+	"""
+	Color selection
+	"""
 
-"""
-Color selection
-"""
+	# Points for the selection between the 3 colors
+	# Bottom Left point (endH, limitH)
+	# Top Right point (limitV, endV)
+	"""
+	#z=3
+	limitH=1.0 
+	limitV=1.2
+	endH=0.15
+	endV=2.5
+	"""
 
-
-fig = plt.figure()
-plt.title("Colors")
-plt.xlabel(selection_properties['Filter2'][i] + "-" +selection_properties['Filter3'][i])
-plt.ylabel(selection_properties['Filter1'][i] + "-" +selection_properties['Filter2'][i])
-#plt.hist2d(cone_z2[selection_properties['Filter2'][i]] - cone_z2[selection_properties['Filter3'][i]], cone_z2[selection_properties['Filter1'][i]] - cone_z2[selection_properties['Filter2'][i]], bins=50, range=([-1.,2.5],[-1.,3.5]))
-#plt.plot(cone_z2[selection_properties['Filter2'][i]] - cone_z2[selection_properties['Filter3'][i]], cone_z2[selection_properties['Filter1'][i]] - cone_z2[selection_properties['Filter2'][i]], '.')
-plt.scatter(cone_z2[selection_properties['Filter2'][i]] - cone_z2[selection_properties['Filter3'][i]], cone_z2[selection_properties['Filter1'][i]] - cone_z2[selection_properties['Filter2'][i]],c=cone_z2['Z_APP'],vmin=1,vmax=5,cmap=plt.cm.spectral)
-cbar = plt.colorbar() 
-plt.plot([-1., 0.3], [1., 1.], '-b')
-plt.plot([1.4, 1.4], [2.6, 3.5], '-b')
-plt.plot([0.3, 1.4], [1.0, 2.6], '-b')
-
-plt.xlim(-1.,2.5) 
-plt.ylim(-1.,3.5) 
-plt.show()
-savemyplot("Colors")
-plt.close()
-
+	#z=4
+	limitH=1.0 
+	limitV=1.0
+	endH=0.1
+	endV=2.28
 
 
+
+	# y = m x + p
+	m = (limitH-endV) / (endH-limitV)
+	p = limitH - m * endH
+
+	# color differences (axes)
+	f1minusf2 = cone.field(selection_properties['Filter1'][i]) - cone.field(selection_properties['Filter2'][i])
+	f2minusf3 = cone.field(selection_properties['Filter2'][i]) - cone.field(selection_properties['Filter3'][i])
+
+	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+	mask_colorX = f2minusf3 < limitV
+	mask_colorY = f1minusf2 > limitH
+	mask_color_mp = f1minusf2 > m * f2minusf3 + p
+
+	mask = mask_colorX & mask_colorY & mask_color_mp
+	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+	fig = plt.figure()
+	plt.title("Colors for z~"+str(selection_properties['z'][i]))
+	plt.xlabel(selection_properties['Filter2'][i] + "-" +selection_properties['Filter3'][i])
+	plt.ylabel(selection_properties['Filter1'][i] + "-" +selection_properties['Filter2'][i])
+	plt.hist2d(cone[selection_properties['Filter2'][i]] - cone[selection_properties['Filter3'][i]], cone[selection_properties['Filter1'][i]] - cone[selection_properties['Filter2'][i]], bins=150, range=([-1.,2.5],[-1.,8.5]))
+	#plt.plot(cone[selection_properties['Filter2'][i]] - cone[selection_properties['Filter3'][i]], cone[selection_properties['Filter1'][i]] - cone[selection_properties['Filter2'][i]], '.')
+
+	cone = cone[mask]
+	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+	plt.scatter(cone[selection_properties['Filter2'][i]] - cone[selection_properties['Filter3'][i]], cone[selection_properties['Filter1'][i]] - cone[selection_properties['Filter2'][i]],c=cone['Z_APP'],vmin=selection_properties['z'][i]-1,vmax=selection_properties['z'][i]+1,cmap=plt.cm.spectral)
+	cbar = plt.colorbar() 
+	plt.plot([-1., endH], [limitH, limitH], '-b')
+	plt.plot([limitV, limitV], [endV, 8.5], '-b')
+	plt.plot([endH, limitV], [limitH, endV], '-b')
+
+	plt.xlim(-1.,2.5) 
+	plt.ylim(-1.,8.5) 
+	plt.show()
+	savemyplot("Colors_z_"+str(selection_properties['z'][i]))
+	plt.close()
+
+
+	print "Number of galaxies selected by color : "+str(len(cone))
+
+
+
+	fig = plt.figure()
+	plt.title("Redshift distribution for the selection @ z~"+str(selection_properties['z'][i]))
+	plt.xlabel("Apparent Redshift (Z_APP)")
+	plt.ylabel("#")
+	plt.hist(cone['Z_APP'], bins=20)
+	plt.show()
+	savemyplot("z_dist_selection_z_"+str(selection_properties['z'][i]))
+	plt.close()
 
 
 
