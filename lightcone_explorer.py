@@ -105,7 +105,7 @@ def creates_tables():
 	mag_limit =      [     24.,     24.3,     24.5,     24.9,     24.9,   25.3]
 	selec_filter_1 = [      '', 'SDSS_U', 'SDSS_G', 'SDSS_R', 'SDSS_I',    'Z']
 	selec_filter_2 = [      '', 'SDSS_G', 'SDSS_R', 'SDSS_I', 'SDSS_Z',    'Y']
-	selec_filter_3 = ['SDSS_R', 'SDSS_R', 'SDSS_I', 'SDSS_Z',      'Y',    'J']
+	selec_filter_3 = ['SDSS_G', 'SDSS_R', 'SDSS_I', 'SDSS_Z',      'Y',    'J']
 	selection_properties = Table([z_bins, mag_limit, selec_filter_1, selec_filter_2, selec_filter_3], names=('z', 'LimitMag', 'Filter1', 'Filter2', 'Filter3'), meta={'name': 'table of the selection properties'})
 
 
@@ -114,7 +114,7 @@ def creates_tables():
 	Nobj_gauss =     [       0,        0,        0,        0,        0,      0]
 	Nobj_PFS =       [       0,        0,        0,        0,        0,      0]
 	Nobj_expected =  [    2700,     2000,      830,      190,       14,      4]
-	gaussian_selection = Table([z_bins, mag_limit, Nobj_zbin, Nobj_gauss, Nobj_PFS, Nobj_expected], names=('z', 'LimitMag', '# objects in z bin', '# objects gaussian', '# objects PFS', '# expected objects'), meta={'name': 'table of gaussian selected objects'})
+	gaussian_selection = Table([z_bins, mag_limit, selec_filter_3, Nobj_zbin, Nobj_gauss, Nobj_PFS, Nobj_expected], names=('z', 'LimitMag', 'Filter3', '# objects in z bin', '# objects gaussian', '# objects PFS', '# expected objects'), meta={'name': 'table of gaussian selected objects'})
 
 
 def main():
