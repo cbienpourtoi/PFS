@@ -29,7 +29,7 @@ from astropy.table import Table
 #from numpy import recfromcsv
 #from numpy.random import normal
 from numpy.random import random
-#import math
+import math
 from time import gmtime, strftime
 
 
@@ -44,6 +44,22 @@ def gauss(x, *p):
     return A*np.exp(-(x-mu)**2/(2.*sigma**2))
 
 
+
+#########################
+#### Fields of View #####
+#########################
+
+# PFS internal diameter of the circle inscrit in the hexagon:
+PFS_diameter = 1.3
+# PFS Field of View:
+PFS_FoV = 1.5 * PFS_diameter * PFS_diameter * math.tan(30*np.pi/180.)
+
+# Lightcones FoV:
+Lightcones_side = 1.4
+Lightcones_FoV = Lightcones_side * Lightcones_side
+
+# FoV Ratio between PFS and the lightcones:
+Ratio_FoV = PFS_FoV / Lightcones_FoV
 
 
 
@@ -68,6 +84,13 @@ selec_filter_3 = ['SDSS_R', 'SDSS_R', 'SDSS_I', 'SDSS_Z',      'Y',    'J']
 selection_properties = Table([z_bins, mag_limit, selec_filter_1, selec_filter_2, selec_filter_3], names=('z', 'LimitMag', 'Filter1', 'Filter2', 'Filter3'), meta={'name': 'table of the selection properties'})
 
 
+
+# Prepares a result table for the gaussian selection
+Nobj_zbin =      [       0,        0,        0,        0,        0,      0]
+Nobj_gauss =     [       0,        0,        0,        0,        0,      0]
+Nobj_PFS =       [       0,        0,        0,        0,        0,      0]
+Nobj_expected =  [    2700,     2000,      830,      190,       14,      4]
+gaussian_selection = Table([z_bins, mag_limit, Nobj_zbin, Nobj_gauss, Nobj_PFS, Nobj_expected], names=('z', 'LimitMag', '# objects in z bin', '# objects gaussian', '# objects PFS', '# expected objects'), meta={'name': 'table of gaussian selected objects'})
 
 """
 Open files
@@ -109,7 +132,6 @@ plt.close()
 
 
 
-
 print "##################################################"
 print "#######      Selection method 2:                 #" 
 print "#######  just selecting statistically in z bins  #"
@@ -126,48 +148,71 @@ for i in np.arange(len(selection_properties)):
 	# selecting all objects with z>2 takes 20 min
 	cone = allcone[mask]
 	
-	# I want to select a gaussian distribution.
-	# I will take for each object a random number "choicemaker" 
-	# between 0 and 1 (using random which I checked to be uniform)
-	# Each z corresponds to a probability Pz (1 for z=z_center, eg z=2, 
-	# and decreases acccording to a gaussian around).
-	# If choicemaker<Pz, I keep the object
-	#choicemaker = random(len(cone))
+	# I want to select a gaussian distribution from a random distribution, selecting all the objects at the peak of the gaussian.
+
+	# Paremeters of the gaussian distribution:
 	distribution_parameters = [1., selection_properties['z'][i], dz/2.5]
 	
-	nbins = len(cone)/50
-	hist, bin_edges = np.histogram(cone['Z_APP'], bins = nbins)
-	#hist_densities, bin_edges = np.histogram(cone['Z_APP'], bins = 20, density = True)
-
+	nbins = 10
 	
-	Pz = gauss(bin_edges[:-1], *distribution_parameters) / hist # AJOUTER NORMALISATION A 1 SUR z=2
-	Pz = Pz / np.mean(Pz[0.45*len(Pz):0.55*len(Pz)])
+	# Current distribution:
+	hist, bin_edges = np.histogram(cone['Z_APP'], bins = nbins, range =(selection_properties['z'][i]-dz,selection_properties['z'][i]+dz))
 
+	# Probability of selection in order to inverse the distribution to a gaussian distribution:
+	Pz = gauss(bin_edges[:-1], *distribution_parameters) / hist # This can lead to 0/0, but that's a minor point, considering it will result in an expected 0.
+	Pz = Pz / np.min(Pz[0.4*len(Pz):0.6*len(Pz)]) # The min does a light over selection.
+
+	# Objects are selected randomly depending on the probability Pz of the bin they belong to.
 	mask_gaussian = np.array([], dtype=bool)
 	for objects in cone:
 		proba = Pz[(np.where(objects.field('Z_APP') <= bin_edges))[0][0]-1]
 		mask_gaussian = np.append(mask_gaussian, [proba>random()])
 	
+	# gaussian distributed selection:
 	cone_gaussian = cone[mask_gaussian]
+
+	gaussian_selection['# objects in z bin'][i] = len(cone)
+	gaussian_selection['# objects gaussian'][i] = len(cone_gaussian)
+	gaussian_selection['# objects PFS'][i] = int(round(len(cone_gaussian)*Ratio_FoV))
 	
-	print "Number of elements in the redshift bin : " + str(len(cone))
-	print "Number of elements after gaussian selection : " + str(len(cone_gaussian))
+	print "Total number of elements in the redshift bin : " + str(gaussian_selection['# objects in z bin'][i])
+	print "Number of elements after gaussian selection : " + str(gaussian_selection['# objects gaussian'][i])
+	print "Number of elements after FoV correction : " + str(gaussian_selection['# objects PFS'][i])
 	
 	fig = plt.figure()
-	plt.title("Redshift distribution for the fake selection @ z~"+str(selection_properties['z'][i]))
+	plt.title("Redshift distribution for the gaussian selection @ z~"+str(selection_properties['z'][i])+"\n Objects selected only inside PFS FoV: "+str(gaussian_selection['# objects PFS'][i]))
 	plt.xlabel("Apparent Redshift (Z_APP)")
 	plt.ylabel("#")
-	plt.hist(cone['Z_APP'], bins=nbins)
-	plt.hist(cone_gaussian['Z_APP'], bins=nbins)
-	plt.plot(bin_edges[:-1], Pz)
-	plt.plot(bin_edges, gauss(bin_edges, *[38., distribution_parameters[1], distribution_parameters[2]]))
+	plt.hist(cone['Z_APP'], bins=nbins,label="Initial distribution: "+str(gaussian_selection['# objects in z bin'][i]), range =(selection_properties['z'][i]-dz,selection_properties['z'][i]+dz))
+	plt.hist(cone_gaussian['Z_APP'], bins=nbins,label="Gaussian selection: "+str(gaussian_selection['# objects gaussian'][i]), range =(selection_properties['z'][i]-dz,selection_properties['z'][i]+dz))
+	#plt.plot(bin_edges[:-1], Pz)
+	plt.plot(bin_edges, gauss(bin_edges, *[max(np.histogram(cone_gaussian['Z_APP'], bins=nbins, range =(selection_properties['z'][i]-dz,selection_properties['z'][i]+dz))[0]), distribution_parameters[1], distribution_parameters[2]]),label ="just a gaussian")
 	#plt.plot(bin_edges[:-1], hist_densities)
 	#plt.plot(bin_edges[:-1], gauss(bin_edges[:-1], *distribution_parameters))
-	savemyplot("z_dist_fake_selection_z_"+str(selection_properties['z'][i]))
-	plt.show()
+	plt.legend()
+	plt.xlim(selection_properties['z'][i]-dz, selection_properties['z'][i]+dz)
+	savemyplot("z_dist_gaussian_selection_z_"+str(selection_properties['z'][i]))
+#	plt.show()
 	plt.close()
 
-	
+print gaussian_selection
+
+"""
+fig = plt.figure()
+plt.title("Comparison objects selected vs objects expected in the PFS FoV")
+plt.xlabel("Redshift bins")
+plt.ylabel("#")
+#plt.hist(cone['Z_APP'], bins=nbins,label="Initial distribution: "+str(gaussian_selection['# objects in z bin'][i]), range =(selection_properties['z'][i]-dz,selection_properties['z'][i]+dz))
+#plt.hist(cone_gaussian['Z_APP'], bins=nbins,label="Gaussian selection: "+str(gaussian_selection['# objects gaussian'][i]), range =(selection_properties['z'][i]-dz,selection_properties['z'][i]+dz))
+plt.plot(gaussian_selection['z'], gaussian_selection['# objects PFS'], label="# of selected objects")
+plt.plot(gaussian_selection['z'], gaussian_selection['# expected objects'], label="Expected # of selected objects")
+plt.legend()
+plt.yscale('log')
+savemyplot("Object_Counts")
+plt.show()
+plt.close()
+"""
+
 sys.exit()
 	
 
