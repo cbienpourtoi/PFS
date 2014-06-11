@@ -126,8 +126,8 @@ def main():
 	file_number = 1
 	open_lightcone(file_number)
 
-	selec_gauss()
-	#selec_3colors()
+	#selec_gauss()
+	selec_3colors()
 
 
 
