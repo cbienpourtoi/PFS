@@ -10,6 +10,10 @@ http://galformod.mpa-garching.mpg.de/qa/mrobs/pages/surveys/PFS.jsp
 """
 
 
+#TODO : Make field of view to the right size
+
+
+
 import numpy as np
 import scipy
 #import pyfits
@@ -24,6 +28,7 @@ from astropy.table import Table
 #from string import upper,lower
 #from numpy import recfromcsv
 #from numpy.random import normal
+from numpy.random import random
 #import math
 from time import gmtime, strftime
 
@@ -34,7 +39,18 @@ def savemyplot(name):
 	fig.savefig(plot_directory+name+plot_extension)
 	return
 
+def gauss(x, *p):
+    A, mu, sigma = p
+    return A*np.exp(-(x-mu)**2/(2.*sigma**2))
+
+
+
+
+
+
 print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+
 
 """
 Table of redshift bins, properties, limit magnitudes and selection filters
@@ -86,9 +102,103 @@ plt.close()
 """
 
 
-"""
-Redshift and limit magnitude selection
-"""
+
+
+
+
+
+
+
+
+print "##################################################"
+print "#######      Selection method 2:                 #" 
+print "#######  just selecting statistically in z bins  #"
+print "##################################################"
+
+for i in np.arange(len(selection_properties)):
+
+	print "Redshift: ~" + str(selection_properties['z'][i]) + "; Limit Magnitude: " + str(selection_properties['LimitMag'][i])
+	mask_z = np.abs( allcone.field('Z_APP') - selection_properties['z'][i] ) < dz
+	mask_mag = allcone.field(selection_properties['Filter3'][i]) < selection_properties['LimitMag'][i]
+	mask = mask_mag & mask_z
+	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+	# selecting all objects with z>2 takes 20 min
+	cone = allcone[mask]
+	
+	# I want to select a gaussian distribution.
+	# I will take for each object a random number "choicemaker" 
+	# between 0 and 1 (using random which I checked to be uniform)
+	# Each z corresponds to a probability Pz (1 for z=z_center, eg z=2, 
+	# and decreases acccording to a gaussian around).
+	# If choicemaker<Pz, I keep the object
+	#choicemaker = random(len(cone))
+	distribution_parameters = [1., selection_properties['z'][i], dz/2.5]
+	
+	nbins = len(cone)/50
+	hist, bin_edges = np.histogram(cone['Z_APP'], bins = nbins)
+	#hist_densities, bin_edges = np.histogram(cone['Z_APP'], bins = 20, density = True)
+
+	
+	Pz = gauss(bin_edges[:-1], *distribution_parameters) / hist # AJOUTER NORMALISATION A 1 SUR z=2
+	Pz = Pz / np.mean(Pz[0.45*len(Pz):0.55*len(Pz)])
+
+	mask_gaussian = np.array([], dtype=bool)
+	for objects in cone:
+		proba = Pz[(np.where(objects.field('Z_APP') <= bin_edges))[0][0]-1]
+		mask_gaussian = np.append(mask_gaussian, [proba>random()])
+	
+	cone_gaussian = cone[mask_gaussian]
+	
+	print "Number of elements in the redshift bin : " + str(len(cone))
+	print "Number of elements after gaussian selection : " + str(len(cone_gaussian))
+	
+	fig = plt.figure()
+	plt.title("Redshift distribution for the fake selection @ z~"+str(selection_properties['z'][i]))
+	plt.xlabel("Apparent Redshift (Z_APP)")
+	plt.ylabel("#")
+	plt.hist(cone['Z_APP'], bins=nbins)
+	plt.hist(cone_gaussian['Z_APP'], bins=nbins)
+	plt.plot(bin_edges[:-1], Pz)
+	plt.plot(bin_edges, gauss(bin_edges, *[38., distribution_parameters[1], distribution_parameters[2]]))
+	#plt.plot(bin_edges[:-1], hist_densities)
+	#plt.plot(bin_edges[:-1], gauss(bin_edges[:-1], *distribution_parameters))
+	savemyplot("z_dist_fake_selection_z_"+str(selection_properties['z'][i]))
+	plt.show()
+	plt.close()
+
+	
+sys.exit()
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+print "##################################################"
+print "#######      Selection method 1:                 #" 
+print "#######    real 3colors selction                 #"
+print "##################################################"
+
 
 #for i in np.arange(len(selection_properties)):
 for i in [1,2,3,4,5]:
@@ -187,21 +297,17 @@ for i in [1,2,3,4,5]:
 
 
 	fig = plt.figure()
-	plt.title("Redshift distribution for the selection @ z~"+str(selection_properties['z'][i]))
+	plt.title("Redshift distribution for the 3 color selection @ z~"+str(selection_properties['z'][i]))
 	plt.xlabel("Apparent Redshift (Z_APP)")
 	plt.ylabel("#")
 	plt.hist(cone['Z_APP'], bins=20)
 	plt.show()
-	savemyplot("z_dist_selection_z_"+str(selection_properties['z'][i]))
+	savemyplot("z_dist_color_selection_z_"+str(selection_properties['z'][i]))
 	plt.close()
 
 
 
-#TODO : Make field of view to the right size
 
-
-
-
-
+	
 
 
