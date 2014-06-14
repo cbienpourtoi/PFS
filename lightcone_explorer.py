@@ -91,7 +91,7 @@ def open_lightcone(file_number):
 	
 def creates_tables():
 
-	global selection_properties, gaussian_selection, dz
+	global selection_properties, gaussian_selection, color_selection, dz
 	
 	"""
 	Table of redshift bins, properties, limit magnitudes and selection filters
@@ -106,7 +106,14 @@ def creates_tables():
 	selec_filter_1 = [      '', 'SDSS_U', 'SDSS_G', 'SDSS_R', 'SDSS_I',    'Z']
 	selec_filter_2 = [      '', 'SDSS_G', 'SDSS_R', 'SDSS_I', 'SDSS_Z',    'Y']
 	selec_filter_3 = ['SDSS_G', 'SDSS_R', 'SDSS_I', 'SDSS_Z',      'Y',    'J']
-	selection_properties = Table([z_bins, mag_limit, selec_filter_1, selec_filter_2, selec_filter_3], names=('z', 'LimitMag', 'Filter1', 'Filter2', 'Filter3'), meta={'name': 'table of the selection properties'})
+	# Points for the selection between the 3 colors
+	# Bottom Left point (endH, limitH)
+	# Top Right point (limitV, endV)
+	limitH =         [      1.,       1.,     1.12,      1.1,       1.,     1.]
+	limitV =         [      1.,      1.2,       1.,     0.82,       1.,     1.]
+	endH =           [     0.1,      .15,     0.04,     0.24,      0.1,   0.05]
+	endV =           [    2.28,      2.5,     2.45,     1.58,     2.28,   2.28]
+	selection_properties = Table([z_bins, mag_limit, selec_filter_1, selec_filter_2, selec_filter_3, limitH, limitV, endH, endV], names=('z', 'LimitMag', 'Filter1', 'Filter2', 'Filter3', 'selec: limitH', 'selec: limitV', 'selec: endH', 'selec: endV'), meta={'name': 'table of the selection properties'})
 
 
 	# Prepares a result table for the gaussian selection
@@ -115,6 +122,14 @@ def creates_tables():
 	Nobj_PFS =       [       0,        0,        0,        0,        0,      0]
 	Nobj_expected =  [    2700,     2000,      830,      190,       14,      4]
 	gaussian_selection = Table([z_bins, mag_limit, selec_filter_3, Nobj_zbin, Nobj_gauss, Nobj_PFS, Nobj_expected], names=('z', 'LimitMag', 'Filter3', '# objects in z bin', '# objects gaussian', '# objects PFS', '# expected objects'), meta={'name': 'table of gaussian selected objects'})
+
+	# Prepares a result table for the 3 colors selection
+	Nobj_maglim =    [       0,        0,        0,        0,        0,      0]
+	Nobj_3colors =   [       0,        0,        0,        0,        0,      0]
+	Nobj_PFS =       [       0,        0,        0,        0,        0,      0]
+	Nobj_expected =  [    2700,     2000,      830,      190,       14,      4]
+	color_selection = Table([z_bins, mag_limit, selec_filter_1, selec_filter_2, selec_filter_3, Nobj_maglim, Nobj_3colors, Nobj_PFS, Nobj_expected], names=('z', 'LimitMag', 'Filter1', 'Filter2', 'Filter3', '# objects under mag lim', '# objects color selected', '# objects PFS', '# expected objects'), meta={'name': 'table of 3 colors selected objects'})
+
 
 
 def main():
@@ -213,6 +228,8 @@ def selec_gauss():
 	plt.show()
 	plt.close()
 	"""
+	
+	sys.exit()
 
 
 def selec_3colors():
@@ -222,18 +239,25 @@ def selec_3colors():
 	print "#######    real 3colors selction                 #"
 	print "##################################################"
 
+	global conelist, cone, list_GALID
 
-	#for i in np.arange(len(selection_properties)):
-	for i in [1,2,3,4,5]:
+	bins = [1,2,3,4,5]
+	#bins = [3]
+	#bins = np.arange(len(selection_properties))
+
+	conelist = []
+	list_GALID = []
+
+	for i in bins:
 		print "redshift: ~" + str(selection_properties['z'][i]) + ". Filters : " + str(selection_properties['Filter1'][i]) +" "+ str(selection_properties['Filter2'][i]) +" "+ str(selection_properties['Filter3'][i])
-		mask_z = np.abs( allcone.field('Z_APP') - selection_properties['z'][i] ) < dz
+		#mask_z = np.abs( allcone.field('Z_APP') - selection_properties['z'][i] ) < dz
 		mask_mag = allcone.field(selection_properties['Filter3'][i]) < selection_properties['LimitMag'][i]
 		mask = mask_mag #& mask_z
 
-		# selecting all objects with z>2 takes 20 min
 		cone = allcone[mask]
+		color_selection['# objects under mag lim'][i] = len(cone)
 
-		print "Number of candidates with mag["+str(selection_properties['Filter3'][i])+"]>"+str(selection_properties['LimitMag'][i])+": " + str(len(cone))
+		print "Number of candidates with mag["+str(selection_properties['Filter3'][i])+"]>"+str(selection_properties['LimitMag'][i])+": " + str(color_selection['# objects under mag lim'][i])
 
 
 		"""
@@ -246,72 +270,74 @@ def selec_3colors():
 		savemyplot(fig, "z_vs_mag")
 		plt.close()
 		"""
-
-		"""
-		Color selection
-		"""
-
-		# Points for the selection between the 3 colors
-		# Bottom Left point (endH, limitH)
-		# Top Right point (limitV, endV)
-		"""
-		#z=3
-		limitH=1.0 
-		limitV=1.2
-		endH=0.15
-		endV=2.5
-		"""
-
-		#z=4
-		limitH=1.0 
-		limitV=1.0
-		endH=0.1
-		endV=2.28
-
-
+		
+		###########################################
+		#    3 color selection is done here:      #
+		###########################################
+		
+		limitH = selection_properties['selec: limitH'][i]
+		limitV = selection_properties['selec: limitV'][i]
+		endH = selection_properties['selec: endH'][i]
+		endV = selection_properties['selec: endV'][i]
 
 		# y = m x + p
 		m = (limitH-endV) / (endH-limitV)
 		p = limitH - m * endH
 
-		# color differences (axes)
 		f1minusf2 = cone.field(selection_properties['Filter1'][i]) - cone.field(selection_properties['Filter2'][i])
 		f2minusf3 = cone.field(selection_properties['Filter2'][i]) - cone.field(selection_properties['Filter3'][i])
-
+		
 		mask_colorX = f2minusf3 < limitV
 		mask_colorY = f1minusf2 > limitH
 		mask_color_mp = f1minusf2 > m * f2minusf3 + p
-
 		mask = mask_colorX & mask_colorY & mask_color_mp
 
+
+		# Color diagram : histogram + individual points for selected objects
 		fig = plt.figure()
 		plt.title("Colors for z~"+str(selection_properties['z'][i]))
 		plt.xlabel(selection_properties['Filter2'][i] + "-" +selection_properties['Filter3'][i])
 		plt.ylabel(selection_properties['Filter1'][i] + "-" +selection_properties['Filter2'][i])
+
+		# histogram
 		plt.hist2d(cone[selection_properties['Filter2'][i]] - cone[selection_properties['Filter3'][i]], cone[selection_properties['Filter1'][i]] - cone[selection_properties['Filter2'][i]], bins=150, range=([-1.,2.5],[-1.,8.5]))
 		#plt.plot(cone[selection_properties['Filter2'][i]] - cone[selection_properties['Filter3'][i]], cone[selection_properties['Filter1'][i]] - cone[selection_properties['Filter2'][i]], '.')
 
+		# selecting objects
 		cone = cone[mask]
-		print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+		conelist.append(cone)
+		
+		# Checking that some of these objects are not duplicates
+		duplicates = set(list_GALID) & set(cone.field('GALID'))
+		print "Number of duplicates: " + str(len(duplicates))
+		#cone = set(cone.field('GALID')) - duplicates
+		#print "After deleting the duplicates in the new cone, number of objects in the cone: "+str(len(cone)) 
 
+		color_selection['# objects color selected'][i] = len(cone)
+		print "Number of galaxies selected by color : "+str(color_selection['# objects color selected'][i])
+
+		for ids in cone.field('GALID'):
+			list_GALID.append(ids)
+
+		#################################
+		### TODO: TAKE CARE OF DUPLICATES ?
+
+		
+		# plotting individual points for selected objects
 		plt.scatter(cone[selection_properties['Filter2'][i]] - cone[selection_properties['Filter3'][i]], cone[selection_properties['Filter1'][i]] - cone[selection_properties['Filter2'][i]],c=cone['Z_APP'],vmin=selection_properties['z'][i]-1,vmax=selection_properties['z'][i]+1,cmap=plt.cm.spectral)
 		cbar = plt.colorbar()
+		cbar.set_label('redshift') 
 
-	############ label cbar ???
-
-		cbar.set_label('z') 
+		# plotting the limits
 		plt.plot([-1., endH], [limitH, limitH], '-b')
 		plt.plot([limitV, limitV], [endV, 8.5], '-b')
 		plt.plot([endH, limitV], [limitH, endV], '-b')
 
 		plt.xlim(-1.,2.5) 
 		plt.ylim(-1.,8.5) 
-		plt.show()
+		#plt.show()
 		savemyplot(fig, "Colors_z_"+str(selection_properties['z'][i]))
 		plt.close()
-
-
-		print "Number of galaxies selected by color : "+str(len(cone))
 
 
 
@@ -320,9 +346,28 @@ def selec_3colors():
 		plt.xlabel("Apparent Redshift (Z_APP)")
 		plt.ylabel("#")
 		plt.hist(cone['Z_APP'], bins=20)
-		plt.show()
+		#plt.show()
 		savemyplot(fig, "z_dist_color_selection_z_"+str(selection_properties['z'][i]))
 		plt.close()
+		
+		color_selection['# objects PFS'][i] = int(round(color_selection['# objects color selected'][i]*Ratio_FoV))
+		
+	fig = plt.figure()
+	plt.title("Redshift distribution for the 3 color selection")
+	plt.xlabel("Apparent Redshift (Z_APP)")
+	plt.ylabel("#")
+	for conei in conelist:
+		plt.hist(conei['Z_APP'], bins=40, range = (0,9), histtype = 'step', label="$z_{median} \sim"+str("%0.1f"%(np.median(conei['Z_APP'])))+"$ "+str("%6.f"%len(conei))+" objects")
+	plt.legend()
+	plt.show()
+	savemyplot(fig, "z_dist_color_selection")
+	plt.close()
+
+	print color_selection
+
+	sys.exit()
+	
+	
 
 
 
