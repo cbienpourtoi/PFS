@@ -241,8 +241,10 @@ def selec_3colors():
 
 	global conelist, cone, list_GALID
 
+	number_duplicates = 0
+
 	bins = [1,2,3,4,5]
-	#bins = [3]
+	#bins = [1]
 	#bins = np.arange(len(selection_properties))
 
 	conelist = []
@@ -310,6 +312,7 @@ def selec_3colors():
 		# Checking that some of these objects are not duplicates
 		duplicates = set(list_GALID) & set(cone.field('GALID'))
 		print "Number of duplicates: " + str(len(duplicates))
+		number_duplicates = number_duplicates + len(duplicates)
 		#cone = set(cone.field('GALID')) - duplicates
 		#print "After deleting the duplicates in the new cone, number of objects in the cone: "+str(len(cone)) 
 
@@ -333,8 +336,14 @@ def selec_3colors():
 		plt.plot([limitV, limitV], [endV, 8.5], '-b')
 		plt.plot([endH, limitV], [limitH, endV], '-b')
 
-		plt.xlim(-1.,2.5) 
-		plt.ylim(-1.,8.5) 
+		if selection_properties['z'][i] == 3:
+			plt.xlim(-1.,2.5) 
+			plt.ylim(-1.,8.5) 
+		else:
+			plt.xlim(-0.5,1.5) 
+			plt.ylim(-1.,4.2) 
+		
+
 		#plt.show()
 		savemyplot(fig, "Colors_z_"+str(selection_properties['z'][i]))
 		plt.close()
@@ -364,6 +373,10 @@ def selec_3colors():
 	plt.close()
 
 	print color_selection
+
+	if number_duplicates !=0:
+		print "WARNING: there are "+str(number_duplicates)+" duplicates in the selection."
+
 
 	sys.exit()
 	
