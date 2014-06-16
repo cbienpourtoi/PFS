@@ -307,14 +307,19 @@ def selec_3colors():
 
 		# selecting objects
 		cone = cone[mask]
-		conelist.append(cone)
+		print "Number of objects after 3 colors selection: " + str(len(cone))
 		
 		# Checking that some of these objects are not duplicates
+		# If there are duplicates, they are deleted from this new bin (ie they stay in the precedent lower z bin).
 		duplicates = set(list_GALID) & set(cone.field('GALID'))
 		print "Number of duplicates: " + str(len(duplicates))
-		number_duplicates = number_duplicates + len(duplicates)
-		#cone = set(cone.field('GALID')) - duplicates
-		#print "After deleting the duplicates in the new cone, number of objects in the cone: "+str(len(cone)) 
+		if len(duplicates) > 0:
+			number_duplicates = number_duplicates + len(duplicates)
+			mask_duplicates = np.ones(len(cone), dtype=bool)
+			for dupie in duplicates:
+				mask_duplicates[np.where(cone.field('GALID') == dupie)] = False
+			cone = cone[mask_duplicates]
+			print "After deleting the duplicates in the new cone, number of objects in the cone: "+str(len(cone)) 
 
 		color_selection['# objects color selected'][i] = len(cone)
 		print "Number of galaxies selected by color : "+str(color_selection['# objects color selected'][i])
@@ -322,9 +327,9 @@ def selec_3colors():
 		for ids in cone.field('GALID'):
 			list_GALID.append(ids)
 
-		#################################
-		### TODO: TAKE CARE OF DUPLICATES ?
-
+		# Adding this cone bin to a list of all "cones" at different redshifts
+		conelist.append(cone)
+		
 		
 		# plotting individual points for selected objects
 		plt.scatter(cone[selection_properties['Filter2'][i]] - cone[selection_properties['Filter3'][i]], cone[selection_properties['Filter1'][i]] - cone[selection_properties['Filter2'][i]],c=cone['Z_APP'],vmin=selection_properties['z'][i]-1,vmax=selection_properties['z'][i]+1,cmap=plt.cm.spectral)
