@@ -380,7 +380,7 @@ def selec_3colors():
 	print color_selection
 
 	if number_duplicates !=0:
-		print "WARNING: there are "+str(number_duplicates)+" duplicates in the selection."
+		print "There was "+str(number_duplicates)+" duplicates in the selection. They have been taken care of."
 
 
 	sys.exit()
