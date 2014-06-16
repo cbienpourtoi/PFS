@@ -154,11 +154,12 @@ def plot_sky():
 	global dz_plot
 	global m
 	dz_plot = 0.005
+	zmin = 1.5
 	zmax = 8.
-	zi = np.arange(dz_plot, zmax, dz_plot*2)
+	zi = np.arange(zmin, zmax, dz_plot*2)
 	#m = Basemap(projection='merc',lon_0=0, lat_0=0, celestial=True)
 	m = Basemap(projection='merc',lon_0=0, lat_0=0, llcrnrlon=min(allcone.field('RA')), llcrnrlat=min(allcone.field('Dec')), urcrnrlon=max(allcone.field('RA')), urcrnrlat=max(allcone.field('Dec')), celestial=True)
-	ani = animation.FuncAnimation(plt.gcf(), animate, frames = 15, interval=50, blit=True)
+	ani = animation.FuncAnimation(plt.gcf(), animate, frames = len(zi), interval=50, blit=True)
 	ani.save('animation.gif', writer='imagemagick', fps = 4);
 	#plt.show()
 	
@@ -182,7 +183,7 @@ def animate(nframe):
 	m.drawparallels(poslines,labels=[1,0,0,0])
 	m.drawmeridians(poslines,labels=[0,0,0,1])
 	plt.title('Redshift bin '+str(zi[nframe]))
-	points = m.scatter(x,y,3,marker='o',color='k')
+	points = m.scatter(x,y,3,marker='o',color='b')
 	return points,
 	
 
