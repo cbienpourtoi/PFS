@@ -27,6 +27,8 @@ from astropy.table import Table
 from numpy.random import random
 import math
 from time import gmtime, strftime
+from mpl_toolkits.basemap import Basemap
+import matplotlib.animation as animation
 
 
 plot_extension = ".png"
@@ -134,16 +136,55 @@ def creates_tables():
 
 def main():
 
-	info_FoV()
+	#info_FoV()
 
-	creates_tables()
+	#creates_tables()
 
 	file_number = 1
 	open_lightcone(file_number)
 
-	#selec_gauss()
-	selec_3colors()
+	plot_sky()
 
+	#selec_gauss()
+	#selec_3colors()
+
+
+def plot_sky():
+	global zi
+	global dz_plot
+	global m
+	dz_plot = 0.005
+	zmax = 8.
+	zi = np.arange(dz_plot, zmax, dz_plot*2)
+	#m = Basemap(projection='merc',lon_0=0, lat_0=0, celestial=True)
+	m = Basemap(projection='merc',lon_0=0, lat_0=0, llcrnrlon=min(allcone.field('RA')), llcrnrlat=min(allcone.field('Dec')), urcrnrlon=max(allcone.field('RA')), urcrnrlat=max(allcone.field('Dec')), celestial=True)
+	ani = animation.FuncAnimation(plt.gcf(), animate, frames = 15, interval=50, blit=True)
+	ani.save('animation.gif', writer='imagemagick', fps = 4);
+	#plt.show()
+	
+def animate(nframe):
+
+	print nframe
+	
+	mask = np.where(np.abs(allcone.field('Z_APP') - zi[nframe]) < dz_plot)
+	conedz = allcone[mask]
+
+	lats = conedz.field('Dec')
+	lons = conedz.field('RA')
+	# Classical coordinate system:
+	#lats = random(10) * 180. - 90.
+	#lons = random(10) * 360.
+
+	# draw map with markers for float locations
+	x, y = m(lons,lats)
+	plt.cla()
+	poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
+	m.drawparallels(poslines,labels=[1,0,0,0])
+	m.drawmeridians(poslines,labels=[0,0,0,1])
+	plt.title('Redshift bin '+str(zi[nframe]))
+	points = m.scatter(x,y,3,marker='o',color='k')
+	return points,
+	
 
 
 def selec_gauss():
