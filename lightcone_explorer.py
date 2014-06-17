@@ -9,6 +9,8 @@ Tool for reading the lightcones from
 http://galformod.mpa-garching.mpg.de/qa/mrobs/pages/surveys/PFS.jsp
 """
 
+#allcone = append_fields(allcone, "isin", np.zeros(len(allcone)), dtypes=bool)
+
 
 import numpy as np
 import scipy
