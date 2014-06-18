@@ -31,6 +31,7 @@ import math
 from time import gmtime, strftime
 from mpl_toolkits.basemap import Basemap
 import matplotlib.animation as animation
+from numpy.lib.recfunctions import append_fields
 
 
 plot_extension = ".png"
@@ -138,32 +139,34 @@ def creates_tables():
 
 def main():
 
-	#info_FoV()
+	info_FoV()
 
-	#creates_tables()
+	creates_tables()
 
 	file_number = 1
 	open_lightcone(file_number)
 
+	#selec_gauss()
+	selec_3colors()
+
 	plot_sky()
 
-	#selec_gauss()
-	#selec_3colors()
-
-
+	
 def plot_sky():
 	global zi
 	global dz_plot
-	global m
-	dz_plot = 0.005
-	zmin = 1.5
+	global m, ax
+	dz_plot = 0.015
+	zmin = 3.5
 	zmax = 8.
+	fig, ax = plt.subplots()
+	#ax.set_title("TEST")
 	zi = np.arange(zmin, zmax, dz_plot*2)
 	#m = Basemap(projection='merc',lon_0=0, lat_0=0, celestial=True)
 	m = Basemap(projection='merc',lon_0=0, lat_0=0, llcrnrlon=min(allcone.field('RA')), llcrnrlat=min(allcone.field('Dec')), urcrnrlon=max(allcone.field('RA')), urcrnrlat=max(allcone.field('Dec')), celestial=True)
 	ani = animation.FuncAnimation(plt.gcf(), animate, frames = len(zi), interval=50, blit=True)
-	ani.save('animation.gif', writer='imagemagick', fps = 4);
-	#plt.show()
+	#ani.save('animation.gif', writer='imagemagick', fps = 4);
+	plt.show()
 	
 def animate(nframe):
 
@@ -172,21 +175,50 @@ def animate(nframe):
 	mask = np.where(np.abs(allcone.field('Z_APP') - zi[nframe]) < dz_plot)
 	conedz = allcone[mask]
 
+	#conedz_3colors = conedz[np.where(allcone_selected_3colors == True)]
+
 	lats = conedz.field('Dec')
 	lons = conedz.field('RA')
+	
+	lats_3colors = np.array([])
+	lons_3colors = np.array([])
+	global common_GALID
+	common_GALID = set(conedz.field('GALID')) & set(list_GALID)
+	for ids in common_GALID:
+		lats_3colors = np.append(lats_3colors, conedz[np.where(conedz.field('GALID') == ids)].field('Dec') )
+		lons_3colors = np.append(lons_3colors, conedz[np.where(conedz.field('GALID') == ids)].field('RA') )
+		
+	
+	#for ids in list_GALID:
+	#	print np.where(conedz.field('GALID') == ids)
+	#lats_3colors = conedz_3colors.field('Dec')
+	#lons_3colors = conedz_3colors.field('RA')
+	
 	# Classical coordinate system:
 	#lats = random(10) * 180. - 90.
 	#lons = random(10) * 360.
 
 	# draw map with markers for float locations
 	x, y = m(lons,lats)
+	x_3colors, y_3colors = m(lons_3colors,lats_3colors)
+	xz, yz = m(0.65, 0.65)
 	plt.cla()
 	poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
 	m.drawparallels(poslines,labels=[1,0,0,0])
 	m.drawmeridians(poslines,labels=[0,0,0,1])
-	plt.title('Redshift bin '+str(zi[nframe]))
-	points = m.scatter(x,y,3,marker='o',color='b')
-	return points,
+	
+	#plt.title('Map')
+	#t2 = plt.title('z='+str(zi[nframe]))
+	
+	pts = ax.set_title('z='+str(zi[nframe]))
+	points = m.scatter(x,y,0.03,marker='o',color='b')
+	points2 = m.scatter(x_3colors, y_3colors, 10,marker='o',color='r')
+	#t = plt.text(xz, yz, 'z='+str(zi[nframe]))
+	
+	
+	#print x_3colors, y_3colors, str(zi[nframe])
+
+	return pts#points, points2, pts#, t2
 	
 
 
@@ -272,8 +304,7 @@ def selec_gauss():
 	plt.show()
 	plt.close()
 	"""
-	
-	sys.exit()
+
 
 
 def selec_3colors():
@@ -283,7 +314,11 @@ def selec_3colors():
 	print "#######    real 3colors selction                 #"
 	print "##################################################"
 
-	global conelist, cone, list_GALID
+	global conelist, cone, list_GALID, allcone_selected_3colors
+
+	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+	allcone_selected_3colors = np.zeros(len(allcone), dtype=int)
+	print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
 	number_duplicates = 0
 
@@ -298,9 +333,8 @@ def selec_3colors():
 		print "redshift: ~" + str(selection_properties['z'][i]) + ". Filters : " + str(selection_properties['Filter1'][i]) +" "+ str(selection_properties['Filter2'][i]) +" "+ str(selection_properties['Filter3'][i])
 		#mask_z = np.abs( allcone.field('Z_APP') - selection_properties['z'][i] ) < dz
 		mask_mag = allcone.field(selection_properties['Filter3'][i]) < selection_properties['LimitMag'][i]
-		mask = mask_mag #& mask_z
 
-		cone = allcone[mask]
+		cone = allcone[mask_mag]
 		color_selection['# objects under mag lim'][i] = len(cone)
 
 		print "Number of candidates with mag["+str(selection_properties['Filter3'][i])+"]>"+str(selection_properties['LimitMag'][i])+": " + str(color_selection['# objects under mag lim'][i])
@@ -352,6 +386,11 @@ def selec_3colors():
 		# selecting objects
 		cone = cone[mask]
 		print "Number of objects after 3 colors selection: " + str(len(cone))
+
+		# Marks selected objects in the initial cone: 
+		#allcone_selected_3colors[mask_mag] = 1
+		#allcone_selected_3colors[np.where(allcone_selected_3colors == 1)] = 1
+		#print len(np.where(allcone_selected_3colors == True))
 		
 		# Checking that some of these objects are not duplicates
 		# If there are duplicates, they are deleted from this new bin (ie they stay in the precedent lower z bin).
@@ -417,7 +456,7 @@ def selec_3colors():
 	for conei in conelist:
 		plt.hist(conei['Z_APP'], bins=40, range = (0,9), histtype = 'step', label="$z_{median} \sim"+str("%0.1f"%(np.median(conei['Z_APP'])))+"$ "+str("%6.f"%len(conei))+" objects")
 	plt.legend()
-	plt.show()
+	#plt.show()
 	savemyplot(fig, "z_dist_color_selection")
 	plt.close()
 
@@ -427,7 +466,6 @@ def selec_3colors():
 		print "There was "+str(number_duplicates)+" duplicates in the selection. They have been taken care of."
 
 
-	sys.exit()
 	
 	
 
