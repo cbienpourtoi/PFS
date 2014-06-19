@@ -7,9 +7,12 @@ Licence: GNU GPL v3
 Description:
 Tool for reading the lightcones from 
 http://galformod.mpa-garching.mpg.de/qa/mrobs/pages/surveys/PFS.jsp
+
+Requirements:
+imagemagic problem ?
 """
 
-#allcone = append_fields(allcone, "isin", np.zeros(len(allcone)), dtypes=bool)
+
 
 
 import numpy as np
@@ -162,8 +165,8 @@ def plot_sky():
 	#m = Basemap(projection='merc',lon_0=0, lat_0=0, celestial=True)
 	m = Basemap(projection='merc',lon_0=0, lat_0=0, llcrnrlon=min(allcone.field('RA')), llcrnrlat=min(allcone.field('Dec')), urcrnrlon=max(allcone.field('RA')), urcrnrlat=max(allcone.field('Dec')), celestial=True)
 	ani = animation.FuncAnimation(plt.gcf(), animate, frames = len(zi), interval=50, blit=True)
-	ani.save('animation.gif', writer='imagemagick', fps = 4);
-	#plt.show()
+	#ani.save('animation.gif', writer='imagemagick', fps = 4);
+	plt.show()
 	
 def animate(nframe):
 
