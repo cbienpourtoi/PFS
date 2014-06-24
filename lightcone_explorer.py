@@ -10,6 +10,10 @@ http://galformod.mpa-garching.mpg.de/qa/mrobs/pages/surveys/PFS.jsp
 
 Requirements:
 imagemagic problem ?
+
+TODO:
+Patch NP that happears to be negative sometimes when reading the fits files. Pass int16 as uint16.
+
 """
 
 
@@ -401,12 +405,45 @@ def selec_3colors():
 
 		"""
 		fig = plt.figure()
-		plt.title("Redshift vs Redder Magnitude")
+		plt.title("Redshift vs Redder Magnitude, selection props for z~"+str(selection_properties['z'][i]))
 		plt.xlabel("Apparent Redshift (Z_APP)")
-		plt.ylabel("Magnitude in redder color (?)")
+		plt.ylabel("Magnitude in redder color: "+str(selection_properties['Filter3'][i]) )
 		plt.hist2d(cone['Z_APP'], cone[selection_properties['Filter3'][i]], bins=1000)
+		#plt.show()
+		savemyplot(fig, "z_vs_mag_for_z_"+str(selection_properties['z'][i]))
+		plt.close()
+		"""
+		
+		fig = plt.figure()
+		plt.title("ZOOM: Number of particles for "+str(selection_properties['Filter3'][i])+" < "+str(selection_properties['LimitMag'][i]))
+		plt.xlabel("NP")
+		plt.ylabel("#")
+		#plt.yscale('log')
+		plt.hist(cone['NP'],bins = 1000, range = (0,1000))
+		#plt.show()
+		savemyplot(fig, "NP_ZOOM_filter3_le_"+str(selection_properties['LimitMag'][i]))
+		plt.close()
+		
+		
+		fig = plt.figure()
+		plt.title("Number of particles for "+str(selection_properties['Filter3'][i])+" < "+str(selection_properties['LimitMag'][i]))
+		plt.xlabel("NP")
+		plt.ylabel("#")
+		#plt.yscale('log')
+		plt.hist(cone['NP'],bins = 1000)
 		plt.show()
-		savemyplot(fig, "z_vs_mag")
+		savemyplot(fig, "NP_filter3_le_"+str(selection_properties['LimitMag'][i]))
+		plt.close()
+		
+		
+		"""
+		fig = plt.figure()
+		plt.title("NP vs Redder Magnitude, selection props for z~"+str(selection_properties['z'][i]))
+		plt.xlabel("Number of particles (NP)")
+		plt.ylabel("Magnitude in redder color: "+str(selection_properties['Filter3'][i]) )
+		plt.hist2d(cone['NP'], cone[selection_properties['Filter3'][i]], bins=1000)
+		plt.show()
+		savemyplot(fig, "NP_vs_mag_for_z_"+str(selection_properties['z'][i]))
 		plt.close()
 		"""
 		
@@ -496,12 +533,31 @@ def selec_3colors():
 		plt.close()
 
 
+		fig = plt.figure()
+		plt.title("ZOOM after 3 color selection: Number of particles @ z~"+str(selection_properties['z'][i]))
+		plt.xlabel("NP")
+		plt.ylabel("#")
+		#plt.yscale('log')
+		plt.hist(cone['NP'],bins = 1000, range = (0,1000))
+		#plt.show()
+		savemyplot(fig, "NP_ZOOM_after_3c_selection_filter3_z_"+str(selection_properties['z'][i]))
+		plt.close()
+
+		fig = plt.figure()
+		plt.title("After 3 color selection: Number of particles @ z~"+str(selection_properties['z'][i]))
+		plt.xlabel("NP")
+		plt.ylabel("#")
+		#plt.yscale('log')
+		plt.hist(cone['NP'])
+		#plt.show()
+		savemyplot(fig, "NP_after_3c_selection_filter3_z_"+str(selection_properties['z'][i]))
+		plt.close()
 
 		fig = plt.figure()
 		plt.title("Redshift distribution for the 3 color selection @ z~"+str(selection_properties['z'][i]))
 		plt.xlabel("Apparent Redshift (Z_APP)")
 		plt.ylabel("#")
-		plt.hist(cone['Z_APP'], bins=20)
+		plt.hist(cone['Z_APP'], bins=40)
 		#plt.show()
 		savemyplot(fig, "z_dist_color_selection_z_"+str(selection_properties['z'][i]))
 		plt.close()
