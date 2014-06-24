@@ -397,6 +397,9 @@ def selec_3colors():
 		#mask_z = np.abs( allcone.field('Z_APP') - selection_properties['z'][i] ) < dz
 		mask_mag = allcone.field(selection_properties['Filter3'][i]) < selection_properties['LimitMag'][i]
 
+		#print "size mask_mag : "+ str(len(mask_mag))
+		#print "number True :"+ str(np.count_nonzero(mask_mag))
+
 		cone = allcone[mask_mag]
 		color_selection['# objects under mag lim'][i] = len(cone)
 
@@ -468,6 +471,7 @@ def selec_3colors():
 		mask_color_mp = f1minusf2 > m * f2minusf3 + p
 		mask = mask_colorX & mask_colorY & mask_color_mp
 
+		#print "size mask : "+ str(len(mask))
 
 		# Color diagram : histogram + individual points for selected objects
 		fig = plt.figure()
