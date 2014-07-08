@@ -126,7 +126,11 @@ def open_lightcone(file_number):
 	savemyplot(fig, "z_dist")
 	plt.close()
 	"""
-	
+
+
+##################################
+#### Makes Properties Tables  ####
+##################################	
 def creates_tables():
 
 	global selection_properties, gaussian_selection, color_selection, dz
@@ -170,7 +174,9 @@ def creates_tables():
 
 
 
-	
+###############################
+#### Plot Sky + animation  ####
+###############################		
 def plot_sky():
 	
 	global zi, dz_plot
@@ -202,6 +208,9 @@ def plot_sky():
 	"""
 
 
+################################
+#### Animation sub-routine  ####
+################################		
 def animate(nframe):
 	print str(nframe)+'/'+str(len(zi))
 	
@@ -238,65 +247,10 @@ def animate(nframe):
 	# Adds a title
 	plt.title('z='+str(zi[nframe]))
 
-	
-"""
-def animate(nframe):
 
-	print nframe
-	
-	plt.cla()
-	
-	mask = np.where(np.abs(allcone.field('Z_APP') - zi[nframe]) < dz_plot)
-	conedz = allcone[mask]
-
-	#conedz_3colors = conedz[np.where(allcone_selected_3colors == True)]
-
-	lats = conedz.field('Dec')
-	lons = conedz.field('RA')
-	
-	lats_3colors = np.array([])
-	lons_3colors = np.array([])
-	global common_GALID
-	common_GALID = set(conedz.field('GALID')) & set(list_GALID)
-	for ids in common_GALID:
-		lats_3colors = np.append(lats_3colors, conedz[np.where(conedz.field('GALID') == ids)].field('Dec') )
-		lons_3colors = np.append(lons_3colors, conedz[np.where(conedz.field('GALID') == ids)].field('RA') )
-		
-	
-	#for ids in list_GALID:
-	#	print np.where(conedz.field('GALID') == ids)
-	#lats_3colors = conedz_3colors.field('Dec')
-	#lons_3colors = conedz_3colors.field('RA')
-	
-	# Classical coordinate system:
-	#lats = random(10) * 180. - 90.
-	#lons = random(10) * 360.
-
-	#m = Basemap(projection='merc',lon_0=0, lat_0=0, llcrnrlon=min(allcone.field('RA')), llcrnrlat=min(allcone.field('Dec')), urcrnrlon=max(allcone.field('RA')), urcrnrlat=max(allcone.field('Dec')), celestial=True)
-	
-	# draw map with markers for float locations
-	#x, y = m(lons,lats)
-	#x_3colors, y_3colors = m(lons_3colors,lats_3colors)
-	#xz, yz = m(0.65, 0.65)
-	#poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
-	#m.drawparallels(poslines,labels=[1,0,0,0])
-	#m.drawmeridians(poslines,labels=[0,0,0,1])
-	
-	#plt.title('Map')
-	plt.title('z='+str(zi[nframe]))
-	
-	#plt.title('z='+str(zi[nframe]))
-	#m.scatter(x,y,0.03,marker='o',color='b')
-	#m.scatter(x_3colors, y_3colors, 10,marker='o',color='r')
-	#t = plt.text(xz, yz, 'z='+str(zi[nframe]))
-	
-	
-	#print x_3colors, y_3colors, str(zi[nframe])
-
-	#return pts#points, points2, pts#, t2
-	
-"""
-
+#############################
+#### Gaussian Selection  ####
+#############################		
 def selec_gauss():
 
 	print "##################################################"
@@ -381,7 +335,9 @@ def selec_gauss():
 	"""
 
 
-
+#############################
+#### Dropouts selection  ####
+#############################		
 def selec_3colors():
 
 	print "##################################################"
