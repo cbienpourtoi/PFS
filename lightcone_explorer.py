@@ -62,6 +62,10 @@ def main():
 
 	creates_tables()
 
+	open_CFHTLS(0)
+
+	sys.exit()
+
 	file_number = 1
 	open_lightcone(file_number)
 
@@ -93,6 +97,35 @@ def info_FoV():
 
 	# FoV Ratio between PFS and the lightcones:
 	Ratio_FoV = PFS_FoV / Lightcones_FoV
+
+
+
+
+
+###########################
+#### Opens CFHTLS cats ####
+###########################
+def open_CFHTLS(file_number):
+
+	global CFHTLS
+
+	# Table of the CFHTLS fields
+	field =         [                   1,                   2,                   3,                   4]
+	field_name =    [                "D1",                "D2",                "D3",                "D4"]
+	pointing =      [     "022559-042940",     "100028+021230",     "141927+524056",     "221531-174356"]
+	CFHTLS_fields = Table([field, field_name, pointing], names=('field', 'field name', 'pointing'), meta={'name': 'table of the CFHTLS fields'})
+
+	# Catalog path
+	catpath = "./data/CFHTLS/"
+	catname = "CFHTLS_D-85_ugriyz_"+CFHTLS_fields['pointing'][file_number]+"_T0007_SIGWEI_MAGAUTO.cat"
+
+	CFHTLS = Table.read(catpath+catname, format='ascii')
+
+	print "There are "+str(len(CFHTLS))+" objects in the CFHTLS catalog opened."
+	
+
+
+
 
 
 ##########################
