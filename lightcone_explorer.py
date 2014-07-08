@@ -52,6 +52,29 @@ def gauss(x, *p):
     return A*np.exp(-(x-mu)**2/(2.*sigma**2))
 
 
+
+#########################
+####      Main      #####
+#########################
+def main():
+
+	info_FoV()
+
+	creates_tables()
+
+	file_number = 1
+	open_lightcone(file_number)
+
+	#selec_gauss()
+	selec_3colors()
+
+	plot_sky()
+
+
+
+
+
+
 #########################
 #### Fields of View #####
 #########################
@@ -72,6 +95,9 @@ def info_FoV():
 	Ratio_FoV = PFS_FoV / Lightcones_FoV
 
 
+##########################
+#### Opens Lightcones ####
+##########################
 def open_lightcone(file_number):
 
 	global allcone, cols
@@ -143,20 +169,6 @@ def creates_tables():
 	color_selection = Table([z_bins, mag_limit, selec_filter_1, selec_filter_2, selec_filter_3, Nobj_maglim, Nobj_3colors, Nobj_PFS, Nobj_expected], names=('z', 'LimitMag', 'Filter1', 'Filter2', 'Filter3', '# objects under mag lim', '# objects color selected', '# objects PFS', '# expected objects'), meta={'name': 'table of 3 colors selected objects'})
 
 
-
-def main():
-
-	info_FoV()
-
-	creates_tables()
-
-	file_number = 1
-	open_lightcone(file_number)
-
-	#selec_gauss()
-	selec_3colors()
-
-	plot_sky()
 
 	
 def plot_sky():
