@@ -435,6 +435,10 @@ def selec_gauss():
 	print "#######  just selecting statistically in z bins  #"
 	print "##################################################"
 
+	global list_GALID
+
+	list_GALID = []
+
 	for i in np.arange(len(selection_properties)):
 
 		print "Redshift: ~" + str(selection_properties['z'][i]) + "; Limit Magnitude: " + str(selection_properties['LimitMag'][i])
@@ -476,7 +480,10 @@ def selec_gauss():
 		print "Total number of elements in the redshift bin : " + str(gaussian_selection['# objects in z bin'][i])
 		print "Number of elements after gaussian selection : " + str(gaussian_selection['# objects gaussian'][i])
 		print "Number of elements after FoV correction : " + str(gaussian_selection['# objects PFS'][i])
-		
+
+		for ids in cone_gaussian.field('GALID'):
+			list_GALID.append(ids)
+
 		fig = plt.figure()
 		plt.title("Redshift distribution for the gaussian selection @ z~"+str(selection_properties['z'][i])+"\n Objects selected only inside PFS FoV: "+str(gaussian_selection['# objects PFS'][i]))
 		plt.xlabel("Apparent Redshift (Z_APP)")
