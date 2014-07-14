@@ -74,7 +74,9 @@ def main():
 	selec_gauss()
 	#selec_3colors()
 
-	plot_sky()
+	plot_sky_animated()
+	
+	#plot_sky()
 
 
 
@@ -354,7 +356,7 @@ def creates_tables():
 ###############################
 #### Plot Sky + animation  ####
 ###############################		
-def plot_sky():
+def plot_sky_animated():
 	
 	global zi, dz_plot
 	global lllon, lllat, urlon, urlat
