@@ -74,7 +74,7 @@ def main():
 	selec_gauss()
 	#selec_3colors()
 
-	plot_sky_animated()
+	plot_sky_animate()
 	
 	#plot_sky()
 
@@ -353,10 +353,46 @@ def creates_tables():
 
 
 
+###################
+#### Plot Sky  ####
+###################		
+def plot_sky():
+	
+	global zi, dz_plot
+	global lllon, lllat, urlon, urlat
+
+	# Infos for selecting redshift slices
+	dz_plot = 0.015
+	zmin = 3.5
+	zmax = 8.
+	zi = np.arange(zmin, zmax, dz_plot*2)
+
+	# Infos for the positions of the corners of the basemap
+	lllon=min(allcone.field('RA'))
+	lllat=min(allcone.field('Dec'))
+	urlon=max(allcone.field('RA'))
+	urlat=max(allcone.field('Dec'))
+	
+	fig = plt.figure(figsize=(10,10))  
+	anim = animation.FuncAnimation(fig, animate, frames=25)
+	anim.save('animation.gif', writer='imagemagick', fps = 2);
+	#plt.show()
+	"""
+	
+	fig = plt.figure()
+	#m = Basemap(projection='merc',lon_0=0, lat_0=0, celestial=True)
+	ani = animation.FuncAnimation(fig, animate, frames = len(zi), interval=50, blit=True)
+	#ani.save('animation.gif', writer='imagemagick', fps = 4);
+	plt.show()
+	"""
+
+
+
+
 ###############################
 #### Plot Sky + animation  ####
 ###############################		
-def plot_sky_animated():
+def plot_sky_animate():
 	
 	global zi, dz_plot
 	global lllon, lllat, urlon, urlat
