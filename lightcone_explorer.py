@@ -27,7 +27,7 @@ import os
 import glob
 import csv
 import matplotlib.pyplot as plt
-#from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm
 from astropy.io import fits
 from astropy.io import ascii
 from astropy.table import Table
@@ -63,17 +63,16 @@ def main():
 
 	creates_tables()
 
-	open_CFHTLS(1)
-	selec_3colors_CFHTLS()
-
-	sys.exit()
+	#open_CFHTLS(1)
+	#selec_3colors_CFHTLS()
+	#sys.exit()
 
 
 	file_number = 1
 	open_lightcone(file_number)
 
-	#selec_gauss()
-	selec_3colors()
+	selec_gauss()
+	#selec_3colors()
 
 	plot_sky()
 
@@ -214,7 +213,7 @@ def selec_3colors_CFHTLS():
 		plt.ylabel(selection_properties['Filter1_CFHTLS'][i] + "-" +selection_properties['Filter2_CFHTLS'][i])
 
 		# histogram
-		plt.hist2d(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]], bins=150, range=([-1.,2.5],[-1.,8.5]))
+		plt.hist2d(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]], bins=150, range=([-1.,2.5],[-1.,8.5]), norm=LogNorm())
 		#plt.plot(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]], '.')
 
 		# selecting objects
@@ -233,7 +232,7 @@ def selec_3colors_CFHTLS():
 
 		
 		# plotting individual points for selected objects
-		plt.scatter(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]])
+		#plt.scatter(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]])
 
 		# plotting the limits
 		plt.plot([-1., endH], [limitH, limitH], '-b')
