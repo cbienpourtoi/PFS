@@ -38,9 +38,6 @@ from mpl_toolkits.basemap import Basemap
 import matplotlib.animation as animation
 from numpy.lib.recfunctions import append_fields
 
-plot_extension = ".png"
-plot_directory = "./plots/"
-
 
 def savemyplot(fig, name):
     fig.savefig(plot_directory + name + plot_extension)
@@ -56,13 +53,17 @@ def gauss(x, *p):
 ####      Main      #####
 #########################
 def main():
+
+    global plot_extension
+    plot_extension = ".png"
+
     info_FoV()
 
     creates_tables()
 
-    #open_CFHTLS(1)
-    #selec_3colors_CFHTLS()
-    #sys.exit()
+    open_CFHTLS(1)
+    selec_3colors_CFHTLS()
+    sys.exit()
 
 
     file_number = 1
@@ -256,11 +257,13 @@ def selec_3colors_CFHTLS():
 #### Opens Lightcones ####
 ##########################
 def open_lightcone(file_number):
-    global allcone, cols
+    global allcone, cols, plot_directory
 
     # Lightcones path
     conepath = "./data/lightcones/"
     conename = "wmap1_bc03_" + str(file_number).zfill(3) + "_igm1.fits"
+    plot_directory = "./plots/"+conename[0:-5]+"/"
+    if not os.path.exists(plot_directory) : os.mkdir(plot_directory)
 
     hdulist = fits.open(conepath + conename)
     allcone = hdulist[1].data
@@ -404,6 +407,7 @@ def plot_sky():
 
 
     plt.show()
+    savemyplot(fig, "sky_map")
     plt.close()
     """
     fig = plt.figure()
@@ -437,7 +441,7 @@ def plot_sky_animate():
 
     fig = plt.figure(figsize=(10, 10))
     anim = animation.FuncAnimation(fig, animate, frames=25)
-    anim.save('animation.gif', writer='imagemagick', fps=2);
+    anim.save(plot_directory+'animation.gif', writer='imagemagick', fps=2);
     #plt.show()
 
     """
