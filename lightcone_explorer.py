@@ -39,6 +39,9 @@ import matplotlib.animation as animation
 from numpy.lib.recfunctions import append_fields
 
 
+table_write_format = 'fixed_width'
+
+
 def savemyplot(fig, name):
     fig.savefig(plot_directory + name + plot_extension)
     return
@@ -61,16 +64,16 @@ def main():
 
     creates_tables()
 
-    open_CFHTLS(1)
-    selec_3colors_CFHTLS()
-    sys.exit()
+    #open_CFHTLS(1)
+    #selec_3colors_CFHTLS()
+    #sys.exit()
 
 
     file_number = 1
     open_lightcone(file_number)
 
-    #selec_gauss()
-    selec_3colors()
+    selec_gauss()
+    #selec_3colors()
 
     #plot_sky_animate()
 
@@ -251,6 +254,8 @@ def selec_3colors_CFHTLS():
             round(color_selection_CFHTLS['# objects color selected CFHTLS'][i] * Ratio_FoV_PFS_CFHTLS))
 
     print color_selection_CFHTLS
+    ascii.write(color_selection_CFHTLS, plot_directory+'color_selection_CFHTLS.txt', format=table_write_format)
+
 
 
 ##########################
@@ -587,6 +592,7 @@ def selec_gauss():
 
 
     print gaussian_selection
+    ascii.write(gaussian_selection, plot_directory+'gaussian_selection.txt', format=table_write_format)
 
     """
     fig = plt.figure()
@@ -829,6 +835,7 @@ def selec_3colors():
     plt.close()
 
     print color_selection
+    ascii.write(color_selection, plot_directory+'color_selection.txt', format=table_write_format)
 
     if number_duplicates != 0:
         print "There was " + str(number_duplicates) + " duplicates in the selection. They have been taken care of."
