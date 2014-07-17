@@ -12,7 +12,7 @@ Requirements:
 imagemagic problem ?
 
 TODO:
-Patch NP that happears to be negative sometimes when reading the fits files. Pass int16 as uint16.
+Patch NP that appears to be negative sometimes when reading the fits files. Pass int16 as uint16.
 
 """
 
@@ -262,17 +262,27 @@ def selec_3colors_CFHTLS():
 #### Opens Lightcones ####
 ##########################
 def open_lightcone(file_number):
-    global allcone, cols, plot_directory
+    global allcone, cols, plot_directory, galid
 
     # Lightcones path
     conepath = "./data/lightcones/"
-    conename = "wmap1_bc03_" + str(file_number).zfill(3) + "_igm1.fits"
+    #conename = "wmap1_bc03_" + str(file_number).zfill(3) + "_igm1.fits"
+    conename = "P1_M05_Ks28.fits"
     plot_directory = "./plots/"+conename[0:-5]+"/"
     if not os.path.exists(plot_directory) : os.mkdir(plot_directory)
 
     hdulist = fits.open(conepath + conename)
     allcone = hdulist[1].data
     cols = hdulist[1].columns
+    # Some files have keyword GALAXYID, others have GALID: we check here what we want:
+    if 'GALAXYID' in str(cols):
+        galid = 'GALAXYID'
+    elif 'GALID' in str(cols):
+        galid = 'GALID'
+    else:
+        print "Cannot find either GALID or GALAXYID in the keywords: exiting savagely."
+        sys.exit()
+
     hdulist.close()
 
     print "There are " + str(len(allcone)) + " objects in the cone."
@@ -294,7 +304,7 @@ def open_lightcone(file_number):
 
 ##################################
 #### Makes Properties Tables  ####
-##################################	
+##################################
 def creates_tables():
     global selection_properties, gaussian_selection, color_selection, color_selection_CFHTLS, dz
 
@@ -362,7 +372,7 @@ def creates_tables():
 
 ###################
 #### Plot Sky  ####
-###################		
+###################
 def plot_sky():
     global zi, dz_plot
     global lllon, lllat, urlon, urlat
@@ -425,7 +435,7 @@ def plot_sky():
 
 ###############################
 #### Plot Sky + animation  ####
-###############################		
+###############################
 def plot_sky_animate():
     global zi, dz_plot
     global lllon, lllat, urlon, urlat
@@ -460,7 +470,7 @@ def plot_sky_animate():
 
 ################################
 #### Animation sub-routine  ####
-################################		
+################################
 def animate(nframe):
     print str(nframe) + '/' + str(len(zi))
 
@@ -474,10 +484,10 @@ def animate(nframe):
     lats_3colors = np.array([])
     lons_3colors = np.array([])
     global common_GALID
-    common_GALID = set(conedz.field('GALID')) & set(list_GALID)
+    common_GALID = set(conedz.field(galid)) & set(list_GALID)
     for ids in common_GALID:
-        lats_3colors = np.append(lats_3colors, conedz[np.where(conedz.field('GALID') == ids)].field('Dec'))
-        lons_3colors = np.append(lons_3colors, conedz[np.where(conedz.field('GALID') == ids)].field('RA'))
+        lats_3colors = np.append(lats_3colors, conedz[np.where(conedz.field(galid) == ids)].field('Dec'))
+        lons_3colors = np.append(lons_3colors, conedz[np.where(conedz.field(galid) == ids)].field('RA'))
 
     plt.cla()
     m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=lllon, llcrnrlat=lllat, urcrnrlon=urlon, urcrnrlat=urlat,
@@ -500,7 +510,7 @@ def animate(nframe):
 
 #############################
 #### Gaussian Selection  ####
-#############################		
+#############################
 def selec_gauss():
     print "##################################################"
     print "#######      Selection method 2:                 #"
@@ -557,7 +567,7 @@ def selec_gauss():
         print "Number of elements after gaussian selection : " + str(gaussian_selection['# objects gaussian'][i])
         print "Number of elements after FoV correction : " + str(gaussian_selection['# objects PFS'][i])
 
-        for ids in cone_gaussian.field('GALID'):
+        for ids in cone_gaussian.field(galid):
             list_GALID.append(ids)
 
         selection.append(Table(cone_gaussian))
@@ -613,7 +623,7 @@ def selec_gauss():
 
 #############################
 #### Dropouts selection  ####
-#############################		
+#############################
 def selec_3colors():
     print "##################################################"
     print "#######      Selection method 1:                 #"
@@ -743,20 +753,20 @@ def selec_3colors():
 
         # Checking that some of these objects are not duplicates
         # If there are duplicates, they are deleted from this new bin (ie they stay in the precedent lower z bin).
-        duplicates = set(list_GALID) & set(cone.field('GALID'))
+        duplicates = set(list_GALID) & set(cone.field(galid))
         print "Number of duplicates: " + str(len(duplicates))
         if len(duplicates) > 0:
             number_duplicates = number_duplicates + len(duplicates)
             mask_duplicates = np.ones(len(cone), dtype=bool)
             for dupie in duplicates:
-                mask_duplicates[np.where(cone.field('GALID') == dupie)] = False
+                mask_duplicates[np.where(cone.field(galid) == dupie)] = False
             cone = cone[mask_duplicates]
             print "After deleting the duplicates in the new cone, number of objects in the cone: " + str(len(cone))
 
         color_selection['# objects color selected'][i] = len(cone)
         print "Number of galaxies selected by color : " + str(color_selection['# objects color selected'][i])
 
-        for ids in cone.field('GALID'):
+        for ids in cone.field(galid):
             list_GALID.append(ids)
 
         selection.append(Table(cone))
