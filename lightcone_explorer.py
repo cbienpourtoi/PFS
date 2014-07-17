@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from astropy.io import fits
 from astropy.io import ascii
-from astropy.table import Table
+from astropy.table import Table, vstack
 # from string import upper,lower
 # from numpy import recfromcsv
 #from numpy.random import normal
@@ -68,8 +68,8 @@ def main():
     file_number = 1
     open_lightcone(file_number)
 
-    selec_gauss()
-    #selec_3colors()
+    #selec_gauss()
+    selec_3colors()
 
     #plot_sky_animate()
 
@@ -378,12 +378,9 @@ def plot_sky():
     '''
 
     # Selects the data selected in the previous selection
-    lats_selection = np.array([])
-    lons_selection = np.array([])
-    for ids in list_GALID:
-        print len(list_GALID)
-    lats_selection = np.append(lats_selection, allcone[np.where(allcone.field('GALID') == ids)].field('Dec'))
-    lons_selection = np.append(lons_selection, allcone[np.where(allcone.field('GALID') == ids)].field('RA'))
+    lats_selection = selection.field('DEC')
+    lons_selection = selection.field('RA')
+    z_selection = selection.field('Z_APP')
 
 
     #plt.cla()
@@ -396,9 +393,12 @@ def plot_sky():
     # draw points
     #x, y = m(lons,lats)
     #m.scatter(x,y,0.03,marker='o',color='b')
+    #x_selection, y_selection = m(lons_selection[np.where(selection.field('Z_APP') < 2.)], lats_selection[np.where(selection.field('Z_APP') < 2.)])
+    #m.scatter(x_selection, y_selection, 10, marker='o', color='r')
     x_selection, y_selection = m(lons_selection, lats_selection)
-    m.scatter(x_selection, y_selection, 10, marker='o', color='r')
-
+    m.scatter(x_selection, y_selection, 10, marker='o', c=z_selection, vmin=min(z_selection), vmax=max(z_selection),cmap=plt.cm.spectral, lw = 0)
+    cbar = plt.colorbar()
+    cbar.set_label('redshift')
     # Adds a title
     #plt.title('z='+str(zi[nframe]))
 
@@ -498,9 +498,10 @@ def selec_gauss():
     print "#######  just selecting statistically in z bins  #"
     print "##################################################"
 
-    global list_GALID, cone_selection
+    global list_GALID, cone_selection, selection
 
     list_GALID = []
+    selection = [] # Table of all data for selected objects (all redshift samples)
 
     for i in np.arange(len(selection_properties)):
 
@@ -550,6 +551,8 @@ def selec_gauss():
         for ids in cone_gaussian.field('GALID'):
             list_GALID.append(ids)
 
+        selection.append(Table(cone_gaussian))
+
         fig = plt.figure()
         plt.title("Redshift distribution for the gaussian selection @ z~" + str(
             selection_properties['z'][i]) + "\n Objects selected only inside PFS FoV: " + str(
@@ -573,6 +576,11 @@ def selec_gauss():
         savemyplot(fig, "z_dist_gaussian_selection_z_" + str(selection_properties['z'][i]))
         #	plt.show()
         plt.close()
+
+    selection = vstack(selection)
+    #print min(selection.field('Z_APP'))
+    #print max(selection.field('Z_APP'))
+
 
     print gaussian_selection
 
@@ -602,7 +610,7 @@ def selec_3colors():
     print "#######    real 3colors selction                 #"
     print "##################################################"
 
-    global conelist, cone, list_GALID, allcone_selected_3colors
+    global conelist, cone, list_GALID, allcone_selected_3colors, selection
 
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
     allcone_selected_3colors = np.zeros(len(allcone), dtype=int)
@@ -616,6 +624,8 @@ def selec_3colors():
 
     conelist = []
     list_GALID = []
+    selection = [] # Table of all data for selected objects (all redshift samples)
+
 
     for i in bins:
         print "redshift: ~" + str(selection_properties['z'][i]) + ". Filters : " + str(
@@ -662,7 +672,7 @@ def selec_3colors():
         plt.ylabel("#")
         #plt.yscale('log')
         plt.hist(cone['NP'], bins=1000)
-        plt.show()
+        #plt.show()
         savemyplot(fig, "NP_filter3_le_" + str(selection_properties['LimitMag'][i]))
         plt.close()
 
@@ -738,6 +748,8 @@ def selec_3colors():
 
         for ids in cone.field('GALID'):
             list_GALID.append(ids)
+
+        selection.append(Table(cone))
 
         # Adding this cone bin to a list of all "cones" at different redshifts
         conelist.append(cone)
@@ -817,6 +829,7 @@ def selec_3colors():
     if number_duplicates != 0:
         print "There was " + str(number_duplicates) + " duplicates in the selection. They have been taken care of."
 
+    selection = vstack(selection)
 
 if __name__ == '__main__':
     main()
