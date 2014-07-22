@@ -70,6 +70,9 @@ def main():
     file_number = 1
     open_lightcone(file_number)
 
+    test_z2()
+    sys.exit()
+
     selec_gauss()
     #selec_3colors()
 
@@ -891,6 +894,22 @@ def selec_3colors():
         print "There was " + str(number_duplicates) + " duplicates in the selection. They have been taken care of."
 
     selection = vstack(selection)
+
+
+#############################
+####  A simple test for  ####
+####   numeration and    ####
+####   compare with R    ####
+#############################
+def test_z2():
+    mask_z = np.abs(allcone.field('Z_APP') - 2.) < .5
+    mask_mag = allcone.field('SDSS_G') < 24.
+    mask = mask_mag & mask_z
+    # Redshift vs Magnitude in filter3
+    cone = allcone[mask]
+    print len(cone)
+
+
 
 if __name__ == '__main__':
     main()
