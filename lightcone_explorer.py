@@ -60,8 +60,6 @@ def main():
     global plot_extension
     plot_extension = ".png"
 
-    info_FoV()
-
     creates_tables()
 
     #open_CFHTLS(1)
@@ -83,7 +81,7 @@ def main():
 #########################
 #### Fields of View #####
 #########################
-def info_FoV():
+def info_FoV(Lightcones_FoV):
     global Ratio_FoV, Ratio_FoV_PFS_CFHTLS
 
     # PFS internal diameter of the circle inscrit in the hexagon:
@@ -91,9 +89,6 @@ def info_FoV():
     # PFS Field of View:
     PFS_FoV = 3. / 4. * PFS_diameter * PFS_diameter * math.cos(30. * np.pi / 180.)
 
-    # Lightcones FoV:
-    Lightcones_side = 1.4  #deg
-    Lightcones_FoV = Lightcones_side * Lightcones_side
 
     # FoV Ratio between PFS and the lightcones:
     Ratio_FoV = PFS_FoV / Lightcones_FoV
@@ -262,7 +257,7 @@ def selec_3colors_CFHTLS():
 #### Opens Lightcones ####
 ##########################
 def open_lightcone(file_number):
-    global allcone, cols, plot_directory, galid
+    global allcone, cols, plot_directory, galid, conename
 
     # Lightcones path
     conepath = "./data/lightcones/"
@@ -277,8 +272,14 @@ def open_lightcone(file_number):
     # Some files have keyword GALAXYID, others have GALID: we check here what we want:
     if 'GALAXYID' in str(cols):
         galid = 'GALAXYID'
+        # Lightcones FoV:
+        Lightcones_radius = 1.  #deg
+        Lightcones_FoV = np.pi * Lightcones_radius * Lightcones_radius
     elif 'GALID' in str(cols):
         galid = 'GALID'
+        # Lightcones FoV:
+        Lightcones_side = 1.4  #deg
+        Lightcones_FoV = Lightcones_side * Lightcones_side
     else:
         print "Cannot find either GALID or GALAXYID in the keywords: exiting savagely."
         sys.exit()
@@ -286,6 +287,10 @@ def open_lightcone(file_number):
     hdulist.close()
 
     print "There are " + str(len(allcone)) + " objects in the cone."
+
+    info_FoV(Lightcones_FoV)
+
+
 
     """
     Just playing with the files: z distribution.
@@ -380,12 +385,8 @@ def plot_sky():
     # Infos for the positions of the corners of the basemap lllon= min(allcone.field('RA'))
 
 
-    lllon = min(allcone.field('RA'))
-    lllat = min(allcone.field('Dec'))
-    urlon = max(allcone.field('RA'))
-    urlat = max(allcone.field('Dec'))
-
     fig = plt.figure(figsize=(10, 10))
+
 
     '''
     # Selects the data in the redshift slice
@@ -400,13 +401,29 @@ def plot_sky():
     lons_selection = selection.field('RA')
     z_selection = selection.field('Z_APP')
 
+    lons_selection[np.where(lons_selection > 180.)] -= 360.
+
+
+    # lllon = min(allcone.field('RA'))
+    # lllat = min(allcone.field('Dec'))
+    # urlon = max(allcone.field('RA'))
+    # urlat = max(allcone.field('Dec'))
+
+    # Map limits
+    lllon = min(lons_selection)
+    lllat = min(lats_selection)
+    urlon = max(lons_selection)
+    urlat = max(lats_selection)
+
+    print lllon, lllat, urlon, urlat
+
 
     #plt.cla()
-    m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=lllon, llcrnrlat=lllat, urcrnrlon=urlon, urcrnrlat=urlat,
-                celestial=True)  # Lattitudes and longtitudes
+    m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=lllon, llcrnrlat=lllat, urcrnrlon=urlon, urcrnrlat=urlat, celestial=True)  # Lattitudes and longtitudes
     poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
     m.drawparallels(poslines, labels=[1, 0, 0, 0])
     m.drawmeridians(poslines, labels=[0, 0, 0, 1])
+    plt.title(conename)
 
     # draw points
     #x, y = m(lons,lats)
@@ -414,7 +431,12 @@ def plot_sky():
     #x_selection, y_selection = m(lons_selection[np.where(selection.field('Z_APP') < 2.)], lats_selection[np.where(selection.field('Z_APP') < 2.)])
     #m.scatter(x_selection, y_selection, 10, marker='o', color='r')
     x_selection, y_selection = m(lons_selection, lats_selection)
-    m.scatter(x_selection, y_selection, 10, marker='o', c=z_selection, vmin=min(z_selection), vmax=max(z_selection),cmap=plt.cm.spectral, lw = 0)
+
+    print x_selection
+    print y_selection
+
+    m.scatter(x_selection, y_selection, 10, marker='o', c=np.round(z_selection), vmin=min(z_selection), vmax=max(z_selection),cmap=plt.cm.spectral, lw = 0)
+    #m.scatter(x_selection, y_selection, 10, marker='o')
     cbar = plt.colorbar()
     cbar.set_label('redshift')
     # Adds a title
@@ -524,12 +546,39 @@ def selec_gauss():
 
     for i in np.arange(len(selection_properties)):
 
-        print "Redshift: ~" + str(selection_properties['z'][i]) + "; Limit Magnitude: " + str(
-            selection_properties['LimitMag'][i])
+        print "Redshift: ~" + str(selection_properties['z'][i]) + "; Limit Magnitude: " + str(selection_properties['LimitMag'][i])
         mask_z = np.abs(allcone.field('Z_APP') - selection_properties['z'][i]) < dz
         mask_mag = allcone.field(selection_properties['Filter3'][i]) < selection_properties['LimitMag'][i]
         mask = mask_mag & mask_z
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+        # Redshift vs Magnitude in filter3
+        cone_z = allcone[mask_z]
+        fig = plt.figure()
+        plt.title("Redshift vs "+selection_properties['Filter3'][i])
+        plt.xlabel("Apparent Redshift (Z_APP)")
+        plt.ylabel(selection_properties['Filter3'][i])
+        plt.hist2d(cone_z['Z_APP'], cone_z[selection_properties['Filter3'][i]], bins=100, range=[[min(cone_z['Z_APP']),max(cone_z['Z_APP'])], [23, 35]])
+        plt.plot([min(cone_z['Z_APP']), max(cone_z['Z_APP'])], [selection_properties['LimitMag'][i], selection_properties['LimitMag'][i]])
+        #plt.ylim(24, 35)
+        #plt.show()
+        savemyplot(fig, "z_vs_" + str(selection_properties['Filter3'][i])+ "_" + str(selection_properties['z'][i]))
+        plt.close()
+
+        # Magnitude in filter3 distribution for a certain z bin
+        fig = plt.figure()
+        plt.title(selection_properties['Filter3'][i]+" for z~"+str(selection_properties['z'][i]))
+        plt.xlabel(selection_properties['Filter3'][i])
+        plt.ylabel("#")
+        plt.hist(cone_z[selection_properties['Filter3'][i]], bins=100, range=[23, 35])
+        plt.plot([selection_properties['LimitMag'][i], selection_properties['LimitMag'][i]], [0, 10000])
+        #plt.ylim(24, 35)
+        #plt.show()
+        savemyplot(fig, "Filter "+str(selection_properties['Filter3'][i])+ "_for_z_" + str(selection_properties['z'][i]))
+        plt.close()
+
+
+
 
         # selecting all objects with z>2 takes 20 min
         cone = allcone[mask]
@@ -542,8 +591,7 @@ def selec_gauss():
         nbins = 10
 
         # Current distribution:
-        hist, bin_edges = np.histogram(cone['Z_APP'], bins=nbins,
-                                       range=(selection_properties['z'][i] - dz, selection_properties['z'][i] + dz))
+        hist, bin_edges = np.histogram(cone['Z_APP'], bins=nbins, range=(selection_properties['z'][i] - dz, selection_properties['z'][i] + dz))
 
         # Probability of selection in order to inverse the distribution to a gaussian distribution:
         Pz = gauss(bin_edges[:-1],
@@ -573,21 +621,13 @@ def selec_gauss():
         selection.append(Table(cone_gaussian))
 
         fig = plt.figure()
-        plt.title("Redshift distribution for the gaussian selection @ z~" + str(
-            selection_properties['z'][i]) + "\n Objects selected only inside PFS FoV: " + str(
-            gaussian_selection['# objects PFS'][i]))
+        plt.title("Redshift distribution for the gaussian selection @ z~" + str(selection_properties['z'][i]) + "\n Objects selected only inside PFS FoV: " + str(gaussian_selection['# objects PFS'][i]))
         plt.xlabel("Apparent Redshift (Z_APP)")
         plt.ylabel("#")
-        plt.hist(cone['Z_APP'], bins=nbins,
-                 label="Initial distribution: " + str(gaussian_selection['# objects in z bin'][i]),
-                 range=(selection_properties['z'][i] - dz, selection_properties['z'][i] + dz))
-        plt.hist(cone_gaussian['Z_APP'], bins=nbins,
-                 label="Gaussian selection: " + str(gaussian_selection['# objects gaussian'][i]),
-                 range=(selection_properties['z'][i] - dz, selection_properties['z'][i] + dz))
+        plt.hist(cone['Z_APP'], bins=nbins,label="Initial distribution: " + str(gaussian_selection['# objects in z bin'][i]), range=(selection_properties['z'][i] - dz, selection_properties['z'][i] + dz))
+        plt.hist(cone_gaussian['Z_APP'], bins=nbins, label="Gaussian selection: " + str(gaussian_selection['# objects gaussian'][i]), range=(selection_properties['z'][i] - dz, selection_properties['z'][i] + dz))
         #plt.plot(bin_edges[:-1], Pz)
-        plt.plot(bin_edges, gauss(bin_edges, *[max(np.histogram(cone_gaussian['Z_APP'], bins=nbins, range=(
-            selection_properties['z'][i] - dz, selection_properties['z'][i] + dz))[0]), distribution_parameters[1],
-                                               distribution_parameters[2]]), label="just a gaussian")
+        plt.plot(bin_edges, gauss(bin_edges, *[max(np.histogram(cone_gaussian['Z_APP'], bins=nbins, range=(selection_properties['z'][i] - dz, selection_properties['z'][i] + dz))[0]), distribution_parameters[1], distribution_parameters[2]]), label="just a gaussian")
         #plt.plot(bin_edges[:-1], hist_densities)
         #plt.plot(bin_edges[:-1], gauss(bin_edges[:-1], *distribution_parameters))
         plt.legend()
