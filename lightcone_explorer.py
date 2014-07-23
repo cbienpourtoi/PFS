@@ -102,160 +102,6 @@ def info_FoV(Lightcones_FoV):
     Ratio_FoV_PFS_CFHTLS = PFS_FoV / CFHTLS_FoV
 
 
-###########################
-#### Opens CFHTLS cats ####
-###########################
-def open_CFHTLS(field_number):
-    global CFHTLS
-
-    # Table of the CFHTLS fields
-    field = [1, 2, 3, 4]
-    field_name = ["D1", "D2", "D3", "D4"]
-    pointing = ["022559-042940", "100028+021230", "141927+524056", "221531-174356"]
-    CFHTLS_fields = Table([field, field_name, pointing], names=('field', 'field name', 'pointing'),
-                          meta={'name': 'table of the CFHTLS fields'})
-
-    # Catalog path
-    catpath = "./data/CFHTLS/"
-    catname = "CFHTLS_D-85_ugriyz_" + CFHTLS_fields['pointing'][field_number] + "_T0007_SIGWEI_MAGAUTO.cat"
-
-    CFHTLS = Table.read(catpath + catname, format='ascii', header_start=-1)
-    #CFHTLS = Table.read(catpath+catname, format='ascii', data_end=10000, header_start=-1)
-
-    print "There are " + str(len(CFHTLS)) + " objects in the CFHTLS catalog: " + catname
-
-    print CFHTLS
-
-
-########################################
-#### Dropouts selection  FOR CFHTLS ####
-########################################
-def selec_3colors_CFHTLS():
-    print "##################################################"
-    print "#######    CFHTLS dropout selction               #"
-    print "##################################################"
-
-    bins = [1, 2, 3]
-    #bins = [1]
-    #bins = np.arange(len(selection_properties))
-
-    #conelist = []
-    #list_GALID = []
-
-    for i in bins:
-        print "redshift: ~" + str(selection_properties['z'][i]) + ". Filters : " + str(
-            selection_properties['Filter1_CFHTLS'][i]) + " " + str(
-            selection_properties['Filter2_CFHTLS'][i]) + " " + str(selection_properties['Filter3_CFHTLS'][i])
-        #mask_z = np.abs( allcone.field('Z_APP') - selection_properties['z'][i] ) < dz
-        print selection_properties['Filter3_CFHTLS'][i]
-        print selection_properties['LimitMag'][i]
-        print CFHTLS[selection_properties['Filter3_CFHTLS'][i]]
-
-        mask_mag = CFHTLS[selection_properties['Filter3_CFHTLS'][i]] < selection_properties['LimitMag'][i]
-
-        #print "size mask_mag : "+ str(len(mask_mag))
-        #print "number True :"+ str(np.count_nonzero(mask_mag))
-
-        sub_CFHTLS = CFHTLS[mask_mag]
-        color_selection_CFHTLS['# objects under mag lim CFHTLS'][i] = len(sub_CFHTLS)
-
-        print "Number of candidates with mag[" + str(selection_properties['Filter3_CFHTLS'][i]) + "]>" + str(
-            selection_properties['LimitMag'][i]) + ": " + str(len(sub_CFHTLS))
-
-        """
-        fig = plt.figure()
-        plt.title("Redshift vs Redder Magnitude, selection props for z~"+str(selection_properties['z'][i]))
-        plt.xlabel("Apparent Redshift (Z_APP)")
-        plt.ylabel("Magnitude in redder color: "+str(selection_properties['Filter3'][i]) )
-        plt.hist2d(cone['Z_APP'], cone[selection_properties['Filter3'][i]], bins=1000)
-        #plt.show()
-        savemyplot(fig, "z_vs_mag_for_z_"+str(selection_properties['z'][i]))
-        plt.close()
-        """
-
-
-        ###########################################
-        #    3 color selection is done here:      #
-        ###########################################
-
-        limitH = selection_properties['selec: limitH'][i]
-        limitV = selection_properties['selec: limitV'][i]
-        endH = selection_properties['selec: endH'][i]
-        endV = selection_properties['selec: endV'][i]
-
-        # y = m x + p
-        m = (limitH - endV) / (endH - limitV)
-        p = limitH - m * endH
-
-        f1minusf2 = sub_CFHTLS.field(selection_properties['Filter1_CFHTLS'][i]) - sub_CFHTLS.field(
-            selection_properties['Filter2_CFHTLS'][i])
-        f2minusf3 = sub_CFHTLS.field(selection_properties['Filter2_CFHTLS'][i]) - sub_CFHTLS.field(
-            selection_properties['Filter3_CFHTLS'][i])
-
-        mask_colorX = f2minusf3 < limitV
-        mask_colorY = f1minusf2 > limitH
-        mask_color_mp = f1minusf2 > m * f2minusf3 + p
-        mask = mask_colorX & mask_colorY & mask_color_mp
-
-        #print "size mask : "+ str(len(mask))
-
-        # Color diagram : histogram + individual points for selected objects
-        fig = plt.figure()
-        plt.title("Colors for z~" + str(selection_properties['z'][i]))
-        plt.xlabel(selection_properties['Filter2_CFHTLS'][i] + "-" + selection_properties['Filter3_CFHTLS'][i])
-        plt.ylabel(selection_properties['Filter1_CFHTLS'][i] + "-" + selection_properties['Filter2_CFHTLS'][i])
-
-        # histogram
-        plt.hist2d(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[
-            selection_properties['Filter3_CFHTLS'][i]],
-                   sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[
-                       selection_properties['Filter2_CFHTLS'][i]], bins=150, range=([-1., 2.5], [-1., 8.5]),
-                   norm=LogNorm())
-        #plt.plot(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]], '.')
-
-        # selecting objects
-        sub_CFHTLS = sub_CFHTLS[mask]
-        print "Number of objects after 3 colors selection: " + str(len(sub_CFHTLS))
-
-        # Marks selected objects in the initial cone:
-        #allcone_selected_3colors[mask_mag] = 1
-        #allcone_selected_3colors[np.where(allcone_selected_3colors == 1)] = 1
-        #print len(np.where(allcone_selected_3colors == True))
-
-
-        color_selection_CFHTLS['# objects color selected CFHTLS'][i] = len(sub_CFHTLS)
-        print "Number of galaxies selected by color : " + str(
-            color_selection_CFHTLS['# objects color selected CFHTLS'][i])
-
-
-
-        # plotting individual points for selected objects
-        #plt.scatter(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]])
-
-        # plotting the limits
-        plt.plot([-1., endH], [limitH, limitH], '-b')
-        plt.plot([limitV, limitV], [endV, 8.5], '-b')
-        plt.plot([endH, limitV], [limitH, endV], '-b')
-
-        if selection_properties['z'][i] == 3:
-            plt.xlim(-1., 2.5)
-            plt.ylim(-1., 8.5)
-        else:
-            plt.xlim(-0.5, 1.5)
-            plt.ylim(-1., 4.2)
-
-        plt.show()
-        savemyplot(fig, "CFHTLS_" + str(selection_properties['z'][i]))
-        plt.close()
-
-        color_selection_CFHTLS['# objects PFS CFHTLS'][i] = int(
-            round(color_selection_CFHTLS['# objects color selected CFHTLS'][i] * Ratio_FoV_PFS_CFHTLS))
-
-    print color_selection_CFHTLS
-    ascii.write(color_selection_CFHTLS, plot_directory+'color_selection_CFHTLS.txt', format=table_write_format)
-
-
-
 ##########################
 #### Opens Lightcones ####
 ##########################
@@ -264,8 +110,8 @@ def open_lightcone(file_number):
 
     # Lightcones path
     conepath = "./data/lightcones/"
-    #conename = "wmap1_bc03_" + str(file_number).zfill(3) + "_igm1.fits"
-    conename = "P1_M05_Ks28.fits"
+    conename = "wmap1_bc03_" + str(file_number).zfill(3) + "_igm1.fits"
+    #conename = "P1_M05_Ks28.fits"
     plot_directory = "./plots/"+conename[0:-5]+"/"
     if not os.path.exists(plot_directory) : os.mkdir(plot_directory)
 
@@ -903,11 +749,167 @@ def selec_3colors():
 #############################
 def test_z2():
     mask_z = np.abs(allcone.field('Z_APP') - 2.) < .5
-    mask_mag = allcone.field('SDSS_G') < 24.
+    mask_mag = allcone.field('SDSS_I') < 24.
     mask = mask_mag & mask_z
     # Redshift vs Magnitude in filter3
     cone = allcone[mask]
     print len(cone)
+
+
+
+
+###########################
+#### Opens CFHTLS cats ####
+###########################
+def open_CFHTLS(field_number):
+    global CFHTLS
+
+    # Table of the CFHTLS fields
+    field = [1, 2, 3, 4]
+    field_name = ["D1", "D2", "D3", "D4"]
+    pointing = ["022559-042940", "100028+021230", "141927+524056", "221531-174356"]
+    CFHTLS_fields = Table([field, field_name, pointing], names=('field', 'field name', 'pointing'),
+                          meta={'name': 'table of the CFHTLS fields'})
+
+    # Catalog path
+    catpath = "./data/CFHTLS/"
+    catname = "CFHTLS_D-85_ugriyz_" + CFHTLS_fields['pointing'][field_number] + "_T0007_SIGWEI_MAGAUTO.cat"
+
+    CFHTLS = Table.read(catpath + catname, format='ascii', header_start=-1)
+    #CFHTLS = Table.read(catpath+catname, format='ascii', data_end=10000, header_start=-1)
+
+    print "There are " + str(len(CFHTLS)) + " objects in the CFHTLS catalog: " + catname
+
+    print CFHTLS
+
+
+########################################
+#### Dropouts selection  FOR CFHTLS ####
+########################################
+def selec_3colors_CFHTLS():
+    print "##################################################"
+    print "#######    CFHTLS dropout selction               #"
+    print "##################################################"
+
+    bins = [1, 2, 3]
+    #bins = [1]
+    #bins = np.arange(len(selection_properties))
+
+    #conelist = []
+    #list_GALID = []
+
+    for i in bins:
+        print "redshift: ~" + str(selection_properties['z'][i]) + ". Filters : " + str(
+            selection_properties['Filter1_CFHTLS'][i]) + " " + str(
+            selection_properties['Filter2_CFHTLS'][i]) + " " + str(selection_properties['Filter3_CFHTLS'][i])
+        #mask_z = np.abs( allcone.field('Z_APP') - selection_properties['z'][i] ) < dz
+        print selection_properties['Filter3_CFHTLS'][i]
+        print selection_properties['LimitMag'][i]
+        print CFHTLS[selection_properties['Filter3_CFHTLS'][i]]
+
+        mask_mag = CFHTLS[selection_properties['Filter3_CFHTLS'][i]] < selection_properties['LimitMag'][i]
+
+        #print "size mask_mag : "+ str(len(mask_mag))
+        #print "number True :"+ str(np.count_nonzero(mask_mag))
+
+        sub_CFHTLS = CFHTLS[mask_mag]
+        color_selection_CFHTLS['# objects under mag lim CFHTLS'][i] = len(sub_CFHTLS)
+
+        print "Number of candidates with mag[" + str(selection_properties['Filter3_CFHTLS'][i]) + "]>" + str(
+            selection_properties['LimitMag'][i]) + ": " + str(len(sub_CFHTLS))
+
+        """
+        fig = plt.figure()
+        plt.title("Redshift vs Redder Magnitude, selection props for z~"+str(selection_properties['z'][i]))
+        plt.xlabel("Apparent Redshift (Z_APP)")
+        plt.ylabel("Magnitude in redder color: "+str(selection_properties['Filter3'][i]) )
+        plt.hist2d(cone['Z_APP'], cone[selection_properties['Filter3'][i]], bins=1000)
+        #plt.show()
+        savemyplot(fig, "z_vs_mag_for_z_"+str(selection_properties['z'][i]))
+        plt.close()
+        """
+
+
+        ###########################################
+        #    3 color selection is done here:      #
+        ###########################################
+
+        limitH = selection_properties['selec: limitH'][i]
+        limitV = selection_properties['selec: limitV'][i]
+        endH = selection_properties['selec: endH'][i]
+        endV = selection_properties['selec: endV'][i]
+
+        # y = m x + p
+        m = (limitH - endV) / (endH - limitV)
+        p = limitH - m * endH
+
+        f1minusf2 = sub_CFHTLS.field(selection_properties['Filter1_CFHTLS'][i]) - sub_CFHTLS.field(
+            selection_properties['Filter2_CFHTLS'][i])
+        f2minusf3 = sub_CFHTLS.field(selection_properties['Filter2_CFHTLS'][i]) - sub_CFHTLS.field(
+            selection_properties['Filter3_CFHTLS'][i])
+
+        mask_colorX = f2minusf3 < limitV
+        mask_colorY = f1minusf2 > limitH
+        mask_color_mp = f1minusf2 > m * f2minusf3 + p
+        mask = mask_colorX & mask_colorY & mask_color_mp
+
+        #print "size mask : "+ str(len(mask))
+
+        # Color diagram : histogram + individual points for selected objects
+        fig = plt.figure()
+        plt.title("Colors for z~" + str(selection_properties['z'][i]))
+        plt.xlabel(selection_properties['Filter2_CFHTLS'][i] + "-" + selection_properties['Filter3_CFHTLS'][i])
+        plt.ylabel(selection_properties['Filter1_CFHTLS'][i] + "-" + selection_properties['Filter2_CFHTLS'][i])
+
+        # histogram
+        plt.hist2d(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[
+            selection_properties['Filter3_CFHTLS'][i]],
+                   sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[
+                       selection_properties['Filter2_CFHTLS'][i]], bins=150, range=([-1., 2.5], [-1., 8.5]),
+                   norm=LogNorm())
+        #plt.plot(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]], '.')
+
+        # selecting objects
+        sub_CFHTLS = sub_CFHTLS[mask]
+        print "Number of objects after 3 colors selection: " + str(len(sub_CFHTLS))
+
+        # Marks selected objects in the initial cone:
+        #allcone_selected_3colors[mask_mag] = 1
+        #allcone_selected_3colors[np.where(allcone_selected_3colors == 1)] = 1
+        #print len(np.where(allcone_selected_3colors == True))
+
+
+        color_selection_CFHTLS['# objects color selected CFHTLS'][i] = len(sub_CFHTLS)
+        print "Number of galaxies selected by color : " + str(
+            color_selection_CFHTLS['# objects color selected CFHTLS'][i])
+
+
+
+        # plotting individual points for selected objects
+        #plt.scatter(sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter3_CFHTLS'][i]], sub_CFHTLS[selection_properties['Filter1_CFHTLS'][i]] - sub_CFHTLS[selection_properties['Filter2_CFHTLS'][i]])
+
+        # plotting the limits
+        plt.plot([-1., endH], [limitH, limitH], '-b')
+        plt.plot([limitV, limitV], [endV, 8.5], '-b')
+        plt.plot([endH, limitV], [limitH, endV], '-b')
+
+        if selection_properties['z'][i] == 3:
+            plt.xlim(-1., 2.5)
+            plt.ylim(-1., 8.5)
+        else:
+            plt.xlim(-0.5, 1.5)
+            plt.ylim(-1., 4.2)
+
+        plt.show()
+        savemyplot(fig, "CFHTLS_" + str(selection_properties['z'][i]))
+        plt.close()
+
+        color_selection_CFHTLS['# objects PFS CFHTLS'][i] = int(
+            round(color_selection_CFHTLS['# objects color selected CFHTLS'][i] * Ratio_FoV_PFS_CFHTLS))
+
+    print color_selection_CFHTLS
+    ascii.write(color_selection_CFHTLS, plot_directory+'color_selection_CFHTLS.txt', format=table_write_format)
+
 
 
 
