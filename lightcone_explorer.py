@@ -32,6 +32,7 @@ from astropy.table import Table, vstack
 # from astropy.cosmology import comoving_distance # depreciated since astropy 0.4
 from astropy.cosmology import WMAP9 as cosmo
 import astropy.units as u
+from astropy.cosmology import z_at_value
 # from string import upper,lower
 # from numpy import recfromcsv
 #from numpy.random import normal
@@ -65,8 +66,6 @@ def main():
     plot_extension = ".png"
 
 
-    #look_overdense()
-    #sys.exit()
 
     creates_tables()
 
@@ -83,6 +82,9 @@ def main():
 
     selec_gauss()
     #selec_3colors()
+
+    look_overdense()
+    sys.exit()
 
     #plot_sky_animate()
 
@@ -240,13 +242,62 @@ def creates_tables():
 #### look for overdensities ####
 ################################
 def look_overdense():
-    xybin = 5. #arcmin
-    #print 10 u.Gyr
+    # Sizes of bins: spatial, redshift
+    xybin = 5./60. #deg = 5arcsec
 
-    #print lbin
+    print "CHANGE VALUE OF LBIN FOR 10, ! 10 IS JUST A TEST VALUE!"
+    lbin = 1000 * u.Mpc
+
+    # Initial redshift
+    zdown = 1.5
+
+    # Cut a redshift slice of depth lbin (converted in z)
+    zup = z_at_value(cosmo.comoving_distance, cosmo.comoving_distance(zdown) + lbin)
+    mask_down = selection.field('Z_APP') > zdown
+    mask_up = selection.field('Z_APP') <= zup
+    mask_slice = mask_down & mask_up
+    cone_slice = selection[mask_slice]
+
+    n_objects_slice = len(cone_slice)
+    print n_objects_slice
 
 
 
+
+
+    # HAVE TO CHANGE RA BECAUSE IT MUST BE 360 ! FOR THE OTHER FILE !
+
+    # selects only the objects in teh right RA-Dec square
+    xsize = urlon - lllon
+    ysize = urlat - lllat
+
+    nbinsx = xsize/xybin
+    nbinsy = ysize/xybin
+
+    density = np.empty([nbinsx, nbinsy])
+
+    nx = 0
+    ny = 0
+
+    for nx in np.arange(0, nbinsx-1, 1):
+        for ny in np.arange(0, nbinsy-1, 1):
+
+            mask_RA_down = cone_slice.field('RA') < urlon - nx * xybin
+            mask_RA_up = cone_slice.field('RA') >= urlon - (nx+1) * xybin
+            mask_RA = mask_RA_down & mask_RA_up
+            mask_Dec_down = cone_slice.field('DEC') > lllat + ny * xybin
+            mask_Dec_up = cone_slice.field('DEC') <= lllat + (ny+1) * xybin
+            mask_Dec = mask_Dec_down & mask_Dec_up
+            mask_coord = mask_RA & mask_Dec
+            cone_cube = cone_slice[mask_coord]
+            n_objects_cube = len(cone_cube)
+            density[nx][ny] = n_objects_cube
+
+            print n_objects_cube
+
+TENTER 1 PLOT ICI
+
+    sys.exit()
 
 
 
@@ -389,8 +440,9 @@ def animate(nframe):
     print str(nframe) + '/' + str(len(zi))
 
     # Selects the data in the redshift slice
-    mask = np.where(np.abs(allcone.field('Z_APP') - zi[nframe]) < dz_plot)
+    mask = np.abs(allcone.field('Z_APP') - zi[nframe]) < dz_plot
     conedz = allcone[mask]
+
     lats = conedz.field('Dec')
     lons = conedz.field('RA')
 
