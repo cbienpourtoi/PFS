@@ -28,6 +28,10 @@ from matplotlib.colors import LogNorm
 from astropy.io import fits
 from astropy.io import ascii
 from astropy.table import Table, vstack
+#from astropy.cosmology.parameters import WMAP9 # depreciated since astropy 0.4
+# from astropy.cosmology import comoving_distance # depreciated since astropy 0.4
+from astropy.cosmology import WMAP9 as cosmo
+import astropy.units as u
 # from string import upper,lower
 # from numpy import recfromcsv
 #from numpy.random import normal
@@ -60,6 +64,10 @@ def main():
     global plot_extension
     plot_extension = ".png"
 
+
+    #look_overdense()
+    #sys.exit()
+
     creates_tables()
 
     #open_CFHTLS(1)
@@ -70,8 +78,8 @@ def main():
     file_number = 1
     open_lightcone(file_number)
 
-    test_z2()
-    sys.exit()
+    #test_z2()
+    #sys.exit()
 
     selec_gauss()
     #selec_3colors()
@@ -107,6 +115,7 @@ def info_FoV(Lightcones_FoV):
 ##########################
 def open_lightcone(file_number):
     global allcone, cols, plot_directory, galid, conename
+    global lllon, lllat, urlon, urlat
 
     # Lightcones path
     conepath = "./data/lightcones/"
@@ -124,11 +133,13 @@ def open_lightcone(file_number):
         # Lightcones FoV:
         Lightcones_radius = 1.  #deg
         Lightcones_FoV = np.pi * Lightcones_radius * Lightcones_radius
+        lllon, lllat, urlon, urlat = -1., -1., 1., 1.
     elif 'GALID' in str(cols):
         galid = 'GALID'
         # Lightcones FoV:
         Lightcones_side = 1.4  #deg
         Lightcones_FoV = Lightcones_side * Lightcones_side
+        lllon, lllat, urlon, urlat = -0.7, -0.7, 0.7, 0.7
     else:
         print "Cannot find either GALID or GALAXYID in the keywords: exiting savagely."
         sys.exit()
@@ -224,12 +235,58 @@ def creates_tables():
          meta={'name': 'CFHTLS: table of 3 colors selected objects'})
 
 
+
+################################
+#### look for overdensities ####
+################################
+def look_overdense():
+    xybin = 5. #arcmin
+    #print 10 u.Gyr
+
+    #print lbin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    print cosmo.comoving_distance([1,2,3,4])
+
+    z=np.arange(0.5, 8.5, 0.1)
+    comodist = cosmo.comoving_distance(z+.002) - cosmo.comoving_distance(z-.002)
+
+
+    fig = plt.figure(figsize=(10, 10))
+    #plt.title(conename)
+    #plt.xkcd()
+    plt.plot(z, comodist, label="Comobile Distance z-.002 to z+.002")
+    plt.plot(z, 1./(1.+z)*20., label="prop 1/(1+z)")
+    plt.legend()
+    plt.xlabel("z")
+    plt.show()
+    #savemyplot(fig, "comobile")
+    plt.close()
+
+
+
+
 ###################
 #### Plot Sky  ####
 ###################
 def plot_sky():
     global zi, dz_plot
-    global lllon, lllat, urlon, urlat
 
     # Infos for the positions of the corners of the basemap lllon= min(allcone.field('RA'))
 
@@ -251,20 +308,6 @@ def plot_sky():
     z_selection = selection.field('Z_APP')
 
     lons_selection[np.where(lons_selection > 180.)] -= 360.
-
-
-    # lllon = min(allcone.field('RA'))
-    # lllat = min(allcone.field('Dec'))
-    # urlon = max(allcone.field('RA'))
-    # urlat = max(allcone.field('Dec'))
-
-    # Map limits
-    lllon = min(lons_selection)
-    lllat = min(lats_selection)
-    urlon = max(lons_selection)
-    urlat = max(lats_selection)
-
-    print lllon, lllat, urlon, urlat
 
 
     #plt.cla()
@@ -775,8 +818,8 @@ def open_CFHTLS(field_number):
     catpath = "./data/CFHTLS/"
     catname = "CFHTLS_D-85_ugriyz_" + CFHTLS_fields['pointing'][field_number] + "_T0007_SIGWEI_MAGAUTO.cat"
 
-    CFHTLS = Table.read(catpath + catname, format='ascii', header_start=-1)
-    #CFHTLS = Table.read(catpath+catname, format='ascii', data_end=10000, header_start=-1)
+    CFHTLS = Table.read(catpath + catname, format='ascii', header_start=15)
+    #CFHTLS = Table.read(catpath+catname, format='ascii', data_end=10000, header_start=15)
 
     print "There are " + str(len(CFHTLS)) + " objects in the CFHTLS catalog: " + catname
 
