@@ -144,7 +144,7 @@ def open_lightcone(file_number):
         # Lightcones FoV:
         Lightcones_side = 1.4  #deg
         Lightcones_FoV = Lightcones_side * Lightcones_side
-        lllon, lllat, urlon, urlat = -0.7, -0.7, 0.7, 0.7
+        lllon, lllat, urlon, urlat = 0.7, -0.7, -0.7, 0.7
     else:
         print "Cannot find either GALID or GALAXYID in the keywords: exiting savagely."
         sys.exit()
@@ -251,14 +251,13 @@ def look_overdense(sky_objects):
     print "XYBIN should change with z !!!!!!"
 
     print "CHANGE VALUE OF LBIN FOR 10, ! 1000 IS JUST A TEST VALUE!"
-    lbin = 40 * u.Mpc
+    lbin = 10 * u.Mpc
 
     # Initial redshift
-    zdown = 1.5
+    zdown = 5.5
 
     # Cut a redshift slice of depth lbin (converted in z)
     zup = z_at_value(cosmo.comoving_distance, cosmo.comoving_distance(zdown) + lbin)
-    print zup
     mask_down = sky_objects.field('Z_APP') > zdown
     mask_up = sky_objects.field('Z_APP') <= zup
     mask_slice = mask_down & mask_up
@@ -273,8 +272,8 @@ def look_overdense(sky_objects):
 
     # HAVE TO CHANGE RA BECAUSE IT MUST BE 360 ! FOR THE OTHER FILE !
 
-    # selects only the objects in teh right RA-Dec square
-    xsize = urlon - lllon
+    # selects only the objects in the right RA-Dec square
+    xsize = lllon - urlon
     ysize = urlat - lllat
 
     nbinsx = xsize/xybin
@@ -288,8 +287,8 @@ def look_overdense(sky_objects):
     for nx in np.arange(0, nbinsx-1, 1):
         for ny in np.arange(0, nbinsy-1, 1):
 
-            mask_RA_down = cone_slice.field('RA') < urlon - nx * xybin
-            mask_RA_up = cone_slice.field('RA') >= urlon - (nx+1) * xybin
+            mask_RA_down = cone_slice.field('RA') < lllon - nx * xybin
+            mask_RA_up = cone_slice.field('RA') >= lllon - (nx+1) * xybin
             mask_RA = mask_RA_down & mask_RA_up
             mask_Dec_down = cone_slice.field('DEC') > lllat + ny * xybin
             mask_Dec_up = cone_slice.field('DEC') <= lllat + (ny+1) * xybin
@@ -299,8 +298,8 @@ def look_overdense(sky_objects):
             n_objects_cube = len(cone_cube)
             density[nx][ny] = n_objects_cube / float(n_objects_slice)
 
-            print n_objects_cube
-            print density[nx][ny]
+
+    print cone_slice
 
     # fig = plt.figure(figsize=(6, 3.2))
     #
@@ -346,7 +345,7 @@ def plot_sky(sky_objects, density = None):
     lons_selection[np.where(lons_selection > 180.)] -= 360.
 
     #plt.cla()
-    m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=lllon, llcrnrlat=lllat, urcrnrlon=urlon, urcrnrlat=urlat, celestial=True)  # Lattitudes and longtitudes
+    m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=-lllon, llcrnrlat=lllat, urcrnrlon=-urlon, urcrnrlat=urlat, celestial=True)  # Lattitudes and longtitudes
     poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
     m.drawparallels(poslines, labels=[1, 0, 0, 0])
     m.drawmeridians(poslines, labels=[0, 0, 0, 1])
@@ -369,8 +368,6 @@ def plot_sky(sky_objects, density = None):
     # Adds a title
     #plt.title('z='+str(zi[nframe]))
 
-    print density
-
     iml_ll_limits = m(urlon, lllat)
     im_ur_limits = m(lllon, urlat)
     print iml_ll_limits
@@ -380,14 +377,10 @@ def plot_sky(sky_objects, density = None):
     print iml_ll_limits[0], im_ur_limits[0], iml_ll_limits[1], im_ur_limits[1]
     plt.show()
     savemyplot(fig, "sky_map")
-    #plt.close()
-
-
-
-    fig = plt.figure(figsize=(10, 10))
-    im = plt.imshow(density, extent=(iml_ll_limits[0], im_ur_limits[0], iml_ll_limits[1], im_ur_limits[1]))
-    plt.show()
     plt.close()
+
+
+
 
 
 
@@ -459,8 +452,8 @@ def animate(nframe):
         lons_3colors = np.append(lons_3colors, conedz[np.where(conedz.field(galid) == ids)].field('RA'))
 
     plt.cla()
-    m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=lllon, llcrnrlat=lllat, urcrnrlon=urlon, urcrnrlat=urlat,
-                celestial=True)
+
+    m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=-lllon, llcrnrlat=lllat, urcrnrlon=-urlon, urcrnrlat=urlat, celestial=True)  # Lattitudes and longtitudes
 
     # Lattitudes and longtitudes
     poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
