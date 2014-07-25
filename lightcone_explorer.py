@@ -80,8 +80,9 @@ def main():
     #test_z2()
     #sys.exit()
 
-    sky_objects = selec_gauss()
+    #sky_objects = selec_gauss()
     #sky_objects = selec_3colors()
+    sky_objects = selec_simple()
 
     sky_objects, sky_density = look_overdense(sky_objects)
 
@@ -836,6 +837,37 @@ def selec_3colors():
 
     if number_duplicates != 0:
         print "There was " + str(number_duplicates) + " duplicates in the selection. They have been taken care of."
+
+    selection = vstack(selection)
+
+    return selection
+
+
+
+#############################
+#### Gaussian Selection  ####
+#############################
+def selec_simple():
+    print "##################################################"
+    print "#######      Selection method 3:                 #"
+    print "#######  all objects over a magnitude(z)         #"
+    print "##################################################"
+
+    global list_GALID, cone_selection, selection
+
+    list_GALID = []
+    selection = [] # Table of all data for selected objects (all redshift samples)
+
+    for i in np.arange(len(selection_properties)):
+
+        print "Redshift: ~" + str(selection_properties['z'][i]) + "; Limit Magnitude: " + str(selection_properties['LimitMag'][i])
+        mask_z = np.abs(allcone.field('Z_APP') - selection_properties['z'][i]) < dz
+        mask_mag = allcone.field(selection_properties['Filter3'][i]) < selection_properties['LimitMag'][i]
+        mask = mask_mag & mask_z
+
+        cone_simple = allcone[mask]
+
+        selection.append(Table(cone_simple))
 
     selection = vstack(selection)
 
