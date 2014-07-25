@@ -83,7 +83,7 @@ def main():
     sky_objects = selec_gauss()
     #sky_objects = selec_3colors()
 
-    sky_density = look_overdense(sky_objects)
+    sky_objects, sky_density = look_overdense(sky_objects)
 
     plot_sky(sky_objects, sky_density)
 
@@ -250,7 +250,7 @@ def look_overdense(sky_objects):
     print "XYBIN should change with z !!!!!!"
 
     print "CHANGE VALUE OF LBIN FOR 10, ! 1000 IS JUST A TEST VALUE!"
-    lbin = 4000 * u.Mpc
+    lbin = 40 * u.Mpc
 
     # Initial redshift
     zdown = 1.5
@@ -311,7 +311,7 @@ def look_overdense(sky_objects):
     # plt.colorbar(orientation='vertical')
     # plt.show()
 
-    return density
+    return cone_slice, density
 
 
 
@@ -344,8 +344,6 @@ def plot_sky(sky_objects, density = None):
 
     lons_selection[np.where(lons_selection > 180.)] -= 360.
 
-    plt.imshow(density)
-
     #plt.cla()
     m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=lllon, llcrnrlat=lllat, urcrnrlon=urlon, urcrnrlat=urlat, celestial=True)  # Lattitudes and longtitudes
     poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
@@ -377,9 +375,22 @@ def plot_sky(sky_objects, density = None):
     print iml_ll_limits
     print im_ur_limits
     im = plt.imshow(density, extent=(iml_ll_limits[0], im_ur_limits[0], iml_ll_limits[1], im_ur_limits[1]))
+    #im = plt.imshow(density, extent=(155000, 0, 0, 155000))
+    print iml_ll_limits[0], im_ur_limits[0], iml_ll_limits[1], im_ur_limits[1]
     plt.show()
     savemyplot(fig, "sky_map")
+    #plt.close()
+
+
+
+    fig = plt.figure(figsize=(10, 10))
+    im = plt.imshow(density, extent=(iml_ll_limits[0], im_ur_limits[0], iml_ll_limits[1], im_ur_limits[1]))
+    plt.show()
     plt.close()
+
+
+
+
     """
     fig = plt.figure()
     #m = Basemap(projection='merc',lon_0=0, lat_0=0, celestial=True)
