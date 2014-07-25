@@ -144,7 +144,7 @@ def open_lightcone(file_number):
         # Lightcones FoV:
         Lightcones_side = 1.4  #deg
         Lightcones_FoV = Lightcones_side * Lightcones_side
-        lllon, lllat, urlon, urlat = 0.7, -0.7, -0.7, 0.7
+        lllon, lllat, urlon, urlat = 0.7 , -0.7, -0.7, 0.7
     else:
         print "Cannot find either GALID or GALAXYID in the keywords: exiting savagely."
         sys.exit()
@@ -245,16 +245,34 @@ def creates_tables():
 #### look for overdensities ####
 ################################
 def look_overdense(sky_objects):
-    # Sizes of bins: spatial, redshift
-    xybin = 5./60. #deg = 5arcsec
+    # Initial redshift
+    zdown = 1.8
 
-    print "XYBIN should change with z !!!!!!"
-
-    print "CHANGE VALUE OF LBIN FOR 10, ! 1000 IS JUST A TEST VALUE!"
+    #print "CHANGE VALUE OF LBIN FOR 10, ! 1000 IS JUST A TEST VALUE!"
     lbin = 10 * u.Mpc
 
-    # Initial redshift
-    zdown = 5.5
+
+    # Sizes of bins: spatial, redshift
+    xybin = 5./60. #5. *u.arcmin
+
+
+    # HAVE TO CHANGE RA BECAUSE IT MUST BE 360 ! FOR THE OTHER FILE !
+
+    # selects only the objects in the right RA-Dec square
+    xsize = lllon - urlon
+    ysize = urlat - lllat
+
+
+    xybin_exact = (lbin / cosmo.kpc_comoving_per_arcmin(zdown)).to(u.deg)
+    nbinsx = np.round(xsize/xybin_exact)
+    xbin = xsize / nbinsx
+    nbinsy = np.round(ysize/xybin_exact)
+    ybin = ysize / nbinsy
+
+    density = np.empty([nbinsx, nbinsy])
+
+
+    print xybin_exact
 
     # Cut a redshift slice of depth lbin (converted in z)
     zup = z_at_value(cosmo.comoving_distance, cosmo.comoving_distance(zdown) + lbin)
@@ -270,33 +288,22 @@ def look_overdense(sky_objects):
 
 
 
-    # HAVE TO CHANGE RA BECAUSE IT MUST BE 360 ! FOR THE OTHER FILE !
-
-    # selects only the objects in the right RA-Dec square
-    xsize = lllon - urlon
-    ysize = urlat - lllat
-
-    nbinsx = xsize/xybin
-    nbinsy = ysize/xybin
-
-    density = np.empty([nbinsx, nbinsy])
-
     nx = 0
     ny = 0
 
-    for nx in np.arange(0, nbinsx-1, 1):
-        for ny in np.arange(0, nbinsy-1, 1):
+    for nx in np.arange(0, nbinsx, 1):
+        for ny in np.arange(0, nbinsy, 1):
 
-            mask_RA_down = cone_slice.field('RA') < lllon - nx * xybin
-            mask_RA_up = cone_slice.field('RA') >= lllon - (nx+1) * xybin
+            mask_RA_down = cone_slice.field('RA') < lllon - nx * xbin
+            mask_RA_up = cone_slice.field('RA') >= lllon - (nx+1) * xbin
             mask_RA = mask_RA_down & mask_RA_up
-            mask_Dec_down = cone_slice.field('DEC') > lllat + ny * xybin
-            mask_Dec_up = cone_slice.field('DEC') <= lllat + (ny+1) * xybin
+            mask_Dec_down = cone_slice.field('DEC') > lllat + ny * ybin
+            mask_Dec_up = cone_slice.field('DEC') <= lllat + (ny+1) * ybin
             mask_Dec = mask_Dec_down & mask_Dec_up
             mask_coord = mask_RA & mask_Dec
             cone_cube = cone_slice[mask_coord]
             n_objects_cube = len(cone_cube)
-            density[nx][ny] = n_objects_cube / float(n_objects_slice)
+            density[ny][nx] = n_objects_cube / float(n_objects_slice)
 
 
     print cone_slice
@@ -361,20 +368,20 @@ def plot_sky(sky_objects, density = None):
     print x_selection
     print y_selection
 
-    m.scatter(x_selection, y_selection, 10, marker='o', c=np.round(z_selection), vmin=min(z_selection), vmax=max(z_selection),cmap=plt.cm.spectral, lw = 0)
-    #m.scatter(x_selection, y_selection, 10, marker='o')
-    cbar = plt.colorbar()
-    cbar.set_label('redshift')
+    #m.scatter(x_selection, y_selection, 10, marker='o', c=np.round(z_selection), vmin=min(z_selection), vmax=max(z_selection),cmap=plt.cm.spectral, lw = 0)
+    #cbar = plt.colorbar()
+    #cbar.set_label('redshift')
+    m.scatter(x_selection, y_selection, 10, marker='o')
     # Adds a title
     #plt.title('z='+str(zi[nframe]))
 
-    iml_ll_limits = m(urlon, lllat)
-    im_ur_limits = m(lllon, urlat)
-    print iml_ll_limits
+    im_ur_limits = m(urlon, urlat)
+    im_ll_limits = m(lllon, lllat)
+    print im_ll_limits
     print im_ur_limits
-    im = plt.imshow(density, extent=(iml_ll_limits[0], im_ur_limits[0], iml_ll_limits[1], im_ur_limits[1]))
-    #im = plt.imshow(density, extent=(155000, 0, 0, 155000))
-    print iml_ll_limits[0], im_ur_limits[0], iml_ll_limits[1], im_ur_limits[1]
+    im = plt.imshow(density, extent=(im_ll_limits[0], im_ur_limits[0], im_ll_limits[1], im_ur_limits[1]), interpolation='nearest', origin='lower')
+    #im = plt.imshow(density, extent=(0, 155000, 0, 155000), interpolation='nearest', origin='lower')
+    print im_ll_limits[1], im_ur_limits[0], im_ll_limits[0], im_ur_limits[1]
     plt.show()
     savemyplot(fig, "sky_map")
     plt.close()
