@@ -245,7 +245,9 @@ def look_overdense():
     # Sizes of bins: spatial, redshift
     xybin = 5./60. #deg = 5arcsec
 
-    print "CHANGE VALUE OF LBIN FOR 10, ! 10 IS JUST A TEST VALUE!"
+    print "XYBIN should change with z !!!!!!"
+
+    print "CHANGE VALUE OF LBIN FOR 10, ! 1000 IS JUST A TEST VALUE!"
     lbin = 1000 * u.Mpc
 
     # Initial redshift
@@ -291,11 +293,22 @@ def look_overdense():
             mask_coord = mask_RA & mask_Dec
             cone_cube = cone_slice[mask_coord]
             n_objects_cube = len(cone_cube)
-            density[nx][ny] = n_objects_cube
+            density[nx][ny] = n_objects_cube / float(n_objects_slice)
 
             print n_objects_cube
+            print density[nx][ny]
 
-TENTER 1 PLOT ICI
+    fig = plt.figure(figsize=(6, 3.2))
+
+    ax = fig.add_subplot(111)
+    ax.set_title('colorMap')
+    plt.imshow(density)
+    ax.set_aspect('equal')
+
+    plt.colorbar(orientation='vertical')
+    plt.show()
+
+    x=2
 
     sys.exit()
 
