@@ -285,9 +285,6 @@ def look_overdense(sky_objects):
     print n_objects_slice
 
 
-
-
-
     nx = 0
     ny = 0
 
@@ -379,7 +376,7 @@ def plot_sky(sky_objects, density = None):
     im_ll_limits = m(lllon, lllat)
     print im_ll_limits
     print im_ur_limits
-    im = plt.imshow(density, extent=(im_ll_limits[0], im_ur_limits[0], im_ll_limits[1], im_ur_limits[1]), interpolation='nearest', origin='lower')
+    im = plt.imshow(density, extent=(im_ll_limits[0], im_ur_limits[0], im_ll_limits[1], im_ur_limits[1]), interpolation='bicubic', origin='lower')
     #im = plt.imshow(density, extent=(0, 155000, 0, 155000), interpolation='nearest', origin='lower')
     print im_ll_limits[1], im_ur_limits[0], im_ll_limits[0], im_ur_limits[1]
     plt.show()
