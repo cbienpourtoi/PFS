@@ -84,9 +84,9 @@ def main():
     #sky_objects = selec_3colors()
     sky_objects = selec_simple()
 
-    sky_objects, sky_density = look_overdense(sky_objects)
+    slices_and_maps = look_overdense(sky_objects)
 
-    plot_sky(sky_objects, sky_density)
+    plot_sky(slices_and_maps[0][0], slices_and_maps[0][1], slices_and_maps[0][2])
 
     sys.exit()
 
@@ -245,77 +245,71 @@ def creates_tables():
 #### look for overdensities ####
 ################################
 def look_overdense(sky_objects):
-    # Initial redshift
-    zdown = 1.8
+
+    slices_and_maps = []
 
     #print "CHANGE VALUE OF LBIN FOR 10, ! 1000 IS JUST A TEST VALUE!"
     lbin = 10 * u.Mpc
-
-
-    # Sizes of bins: spatial, redshift
-    xybin = 5./60. #5. *u.arcmin
-
-
-    # HAVE TO CHANGE RA BECAUSE IT MUST BE 360 ! FOR THE OTHER FILE !
 
     # selects only the objects in the right RA-Dec square
     xsize = lllon - urlon
     ysize = urlat - lllat
 
+    # Initial redshift
+    zdown = 1.8
+    zup = 1.85
 
-    xybin_exact = (lbin / cosmo.kpc_comoving_per_arcmin(zdown)).to(u.deg)
-    nbinsx = np.round(xsize/xybin_exact)
-    xbin = xsize / nbinsx
-    nbinsy = np.round(ysize/xybin_exact)
-    ybin = ysize / nbinsy
+    z = zdown
 
-    density = np.empty([nbinsx, nbinsy])
+    while z < zup:
 
+        print z
 
-    print xybin_exact
+        # TODO HAVE TO CHANGE RA BECAUSE IT MUST BE 360 ! FOR THE OTHER FILE !
 
-    # Cut a redshift slice of depth lbin (converted in z)
-    zup = z_at_value(cosmo.comoving_distance, cosmo.comoving_distance(zdown) + lbin)
-    mask_down = sky_objects.field('Z_APP') > zdown
-    mask_up = sky_objects.field('Z_APP') <= zup
-    mask_slice = mask_down & mask_up
-    cone_slice = sky_objects[mask_slice]
+        xybin_exact = (lbin / cosmo.kpc_comoving_per_arcmin(z)).to(u.deg)
+        nbinsx = np.round(xsize/xybin_exact)
+        xbin = xsize / nbinsx
+        nbinsy = np.round(ysize/xybin_exact)
+        ybin = ysize / nbinsy
 
-    n_objects_slice = len(cone_slice)
-    print n_objects_slice
+        density = np.empty([nbinsx, nbinsy])
 
 
-    nx = 0
-    ny = 0
+        # Cut a redshift slice of depth lbin (converted in z)
+        zinc = z_at_value(cosmo.comoving_distance, cosmo.comoving_distance(z) + lbin)
+        mask_down = sky_objects.field('Z_APP') > z
+        mask_up = sky_objects.field('Z_APP') <= zinc
+        mask_slice = mask_down & mask_up
+        cone_slice = sky_objects[mask_slice]
 
-    for nx in np.arange(0, nbinsx, 1):
-        for ny in np.arange(0, nbinsy, 1):
-
-            mask_RA_down = cone_slice.field('RA') < lllon - nx * xbin
-            mask_RA_up = cone_slice.field('RA') >= lllon - (nx+1) * xbin
-            mask_RA = mask_RA_down & mask_RA_up
-            mask_Dec_down = cone_slice.field('DEC') > lllat + ny * ybin
-            mask_Dec_up = cone_slice.field('DEC') <= lllat + (ny+1) * ybin
-            mask_Dec = mask_Dec_down & mask_Dec_up
-            mask_coord = mask_RA & mask_Dec
-            cone_cube = cone_slice[mask_coord]
-            n_objects_cube = len(cone_cube)
-            density[ny][nx] = n_objects_cube / float(n_objects_slice)
+        n_objects_slice = len(cone_slice)
+        print n_objects_slice
 
 
-    print cone_slice
+        nx = 0
+        ny = 0
 
-    # fig = plt.figure(figsize=(6, 3.2))
-    #
-    # ax = fig.add_subplot(111)
-    # ax.set_title('colorMap')
-    # plt.imshow(density)
-    # ax.set_aspect('equal')
-    #
-    # plt.colorbar(orientation='vertical')
-    # plt.show()
+        for nx in np.arange(0, nbinsx, 1):
+            for ny in np.arange(0, nbinsy, 1):
 
-    return cone_slice, density
+                mask_RA_down = cone_slice.field('RA') < lllon - nx * xbin
+                mask_RA_up = cone_slice.field('RA') >= lllon - (nx+1) * xbin
+                mask_RA = mask_RA_down & mask_RA_up
+                mask_Dec_down = cone_slice.field('DEC') > lllat + ny * ybin
+                mask_Dec_up = cone_slice.field('DEC') <= lllat + (ny+1) * ybin
+                mask_Dec = mask_Dec_down & mask_Dec_up
+                mask_coord = mask_RA & mask_Dec
+                cone_cube = cone_slice[mask_coord]
+                n_objects_cube = len(cone_cube)
+                density[ny][nx] = n_objects_cube / float(n_objects_slice)
+
+
+        z = zinc
+
+        slices_and_maps.append([cone_slice, density, (z+zinc)/2.])
+
+    return slices_and_maps
 
 
 
@@ -324,7 +318,7 @@ def look_overdense(sky_objects):
 ###################
 #### Plot Sky  ####
 ###################
-def plot_sky(sky_objects, density = None):
+def plot_sky(sky_objects, density = None, z = None):
     global zi, dz_plot
 
     # Infos for the positions of the corners of the basemap lllon= min(allcone.field('RA'))
@@ -353,7 +347,7 @@ def plot_sky(sky_objects, density = None):
     poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
     m.drawparallels(poslines, labels=[1, 0, 0, 0])
     m.drawmeridians(poslines, labels=[0, 0, 0, 1])
-    plt.title(conename)
+    plt.title(conename+" @ z~"+str(z))
 
     # draw points
     #x, y = m(lons,lats)
