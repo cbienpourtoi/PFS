@@ -80,15 +80,16 @@ def main():
     #test_z2()
     #sys.exit()
 
-    selec_gauss()
-    #selec_3colors()
+    sky_objects = selec_gauss()
+    #sky_objects = selec_3colors()
+
+    plot_sky(sky_objects)
 
     look_overdense()
     sys.exit()
 
     #plot_sky_animate()
 
-    plot_sky()
 
 
 #########################
@@ -349,7 +350,7 @@ def look_overdense():
 ###################
 #### Plot Sky  ####
 ###################
-def plot_sky():
+def plot_sky(sky_objects):
     global zi, dz_plot
 
     # Infos for the positions of the corners of the basemap lllon= min(allcone.field('RA'))
@@ -367,9 +368,9 @@ def plot_sky():
     '''
 
     # Selects the data selected in the previous selection
-    lats_selection = selection.field('DEC')
-    lons_selection = selection.field('RA')
-    z_selection = selection.field('Z_APP')
+    lats_selection = sky_objects.field('DEC')
+    lons_selection = sky_objects.field('RA')
+    z_selection = sky_objects.field('Z_APP')
 
     lons_selection[np.where(lons_selection > 180.)] -= 360.
 
@@ -384,7 +385,7 @@ def plot_sky():
     # draw points
     #x, y = m(lons,lats)
     #m.scatter(x,y,0.03,marker='o',color='b')
-    #x_selection, y_selection = m(lons_selection[np.where(selection.field('Z_APP') < 2.)], lats_selection[np.where(selection.field('Z_APP') < 2.)])
+    #x_selection, y_selection = m(lons_selection[np.where(sky_objects.field('Z_APP') < 2.)], lats_selection[np.where(sky_objects.field('Z_APP') < 2.)])
     #m.scatter(x_selection, y_selection, 10, marker='o', color='r')
     x_selection, y_selection = m(lons_selection, lats_selection)
 
@@ -617,6 +618,7 @@ def selec_gauss():
     plt.close()
     """
 
+    return selection
 
 #############################
 #### Dropouts selection  ####
@@ -848,6 +850,8 @@ def selec_3colors():
         print "There was " + str(number_duplicates) + " duplicates in the selection. They have been taken care of."
 
     selection = vstack(selection)
+
+    return selection
 
 
 #############################
