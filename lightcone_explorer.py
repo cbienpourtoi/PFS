@@ -83,9 +83,10 @@ def main():
     sky_objects = selec_gauss()
     #sky_objects = selec_3colors()
 
-    plot_sky(sky_objects)
+    sky_density = look_overdense(sky_objects)
 
-    look_overdense()
+    plot_sky(sky_objects, sky_density)
+
     sys.exit()
 
     #plot_sky_animate()
@@ -242,24 +243,25 @@ def creates_tables():
 ################################
 #### look for overdensities ####
 ################################
-def look_overdense():
+def look_overdense(sky_objects):
     # Sizes of bins: spatial, redshift
     xybin = 5./60. #deg = 5arcsec
 
     print "XYBIN should change with z !!!!!!"
 
     print "CHANGE VALUE OF LBIN FOR 10, ! 1000 IS JUST A TEST VALUE!"
-    lbin = 1000 * u.Mpc
+    lbin = 4000 * u.Mpc
 
     # Initial redshift
     zdown = 1.5
 
     # Cut a redshift slice of depth lbin (converted in z)
     zup = z_at_value(cosmo.comoving_distance, cosmo.comoving_distance(zdown) + lbin)
-    mask_down = selection.field('Z_APP') > zdown
-    mask_up = selection.field('Z_APP') <= zup
+    print zup
+    mask_down = sky_objects.field('Z_APP') > zdown
+    mask_up = sky_objects.field('Z_APP') <= zup
     mask_slice = mask_down & mask_up
-    cone_slice = selection[mask_slice]
+    cone_slice = sky_objects[mask_slice]
 
     n_objects_slice = len(cone_slice)
     print n_objects_slice
@@ -299,50 +301,18 @@ def look_overdense():
             print n_objects_cube
             print density[nx][ny]
 
-    fig = plt.figure(figsize=(6, 3.2))
+    # fig = plt.figure(figsize=(6, 3.2))
+    #
+    # ax = fig.add_subplot(111)
+    # ax.set_title('colorMap')
+    # plt.imshow(density)
+    # ax.set_aspect('equal')
+    #
+    # plt.colorbar(orientation='vertical')
+    # plt.show()
 
-    ax = fig.add_subplot(111)
-    ax.set_title('colorMap')
-    plt.imshow(density)
-    ax.set_aspect('equal')
+    return density
 
-    plt.colorbar(orientation='vertical')
-    plt.show()
-
-    x=2
-
-    sys.exit()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    print cosmo.comoving_distance([1,2,3,4])
-
-    z=np.arange(0.5, 8.5, 0.1)
-    comodist = cosmo.comoving_distance(z+.002) - cosmo.comoving_distance(z-.002)
-
-
-    fig = plt.figure(figsize=(10, 10))
-    #plt.title(conename)
-    #plt.xkcd()
-    plt.plot(z, comodist, label="Comobile Distance z-.002 to z+.002")
-    plt.plot(z, 1./(1.+z)*20., label="prop 1/(1+z)")
-    plt.legend()
-    plt.xlabel("z")
-    plt.show()
-    #savemyplot(fig, "comobile")
-    plt.close()
 
 
 
@@ -350,7 +320,7 @@ def look_overdense():
 ###################
 #### Plot Sky  ####
 ###################
-def plot_sky(sky_objects):
+def plot_sky(sky_objects, density = None):
     global zi, dz_plot
 
     # Infos for the positions of the corners of the basemap lllon= min(allcone.field('RA'))
@@ -374,6 +344,7 @@ def plot_sky(sky_objects):
 
     lons_selection[np.where(lons_selection > 180.)] -= 360.
 
+    plt.imshow(density)
 
     #plt.cla()
     m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=lllon, llcrnrlat=lllat, urcrnrlon=urlon, urcrnrlat=urlat, celestial=True)  # Lattitudes and longtitudes
@@ -399,7 +370,13 @@ def plot_sky(sky_objects):
     # Adds a title
     #plt.title('z='+str(zi[nframe]))
 
+    print density
 
+    iml_ll_limits = m(urlon, lllat)
+    im_ur_limits = m(lllon, urlat)
+    print iml_ll_limits
+    print im_ur_limits
+    im = plt.imshow(density, extent=(iml_ll_limits[0], im_ur_limits[0], iml_ll_limits[1], im_ur_limits[1]))
     plt.show()
     savemyplot(fig, "sky_map")
     plt.close()
