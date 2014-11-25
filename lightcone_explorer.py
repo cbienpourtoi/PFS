@@ -30,7 +30,9 @@ from astropy.io import ascii
 from astropy.table import Table, vstack
 #from astropy.cosmology.parameters import WMAP9 # depreciated since astropy 0.4
 # from astropy.cosmology import comoving_distance # depreciated since astropy 0.4
-from astropy.cosmology import WMAP9 as cosmo
+from astropy.cosmology import Planck13 as cosmo
+from astropy import cosmology
+from astropy.cosmology import parameters
 import astropy.units as u
 from astropy.cosmology import z_at_value
 # from string import upper,lower
@@ -62,10 +64,11 @@ def gauss(x, *p):
 #########################
 def main():
 
-    global plot_extension
+    global plot_extension, mycosmo
     plot_extension = ".png"
 
-
+    # Defines the cosmology to be compatible with the simulation
+    mycosmo = MyCosmology(cosmo)
 
     creates_tables()
 
@@ -77,20 +80,69 @@ def main():
     file_number = 1
     open_lightcone(file_number)
 
+
+    NPmin = 50 #Number of particles to consider for an object (20 is the selection from the catalog itself)
+    subsample_NP(NPmin)
+
     #test_z2()
     #sys.exit()
 
-    #sky_objects = selec_gauss()
-    #sky_objects = selec_3colors()
-    sky_objects = selec_simple()
+
+    do_selection = False
+    if do_selection:
+        sky_objects = selec_gauss()
+        #sky_objects = selec_3colors()
+        #sky_objects = selec_simple()
+        ascii.write(sky_objects, plot_directory+'current_selection.txt', format=table_write_format)
+    else:
+       sky_objects = ascii.read(plot_directory+'current_selection.txt', format=table_write_format)
+
+
+
+
+    compute_densities(sky_objects)
+
 
     slices_and_maps = look_overdense(sky_objects)
 
-    plot_sky(slices_and_maps[0][0], slices_and_maps[0][1], slices_and_maps[0][2])
+    #plot_sky(slices_and_maps[0][0], slices_and_maps[0][1], slices_and_maps[0][2])
 
-    sys.exit()
+    for i in np.arange(10):
+        plot_sky(slices_and_maps[i][0], slices_and_maps[i][1], slices_and_maps[i][2])
 
-    #plot_sky_animate()
+
+    #sys.exit()
+
+    plot_sky_animate()
+
+
+###############################
+#### Creates a cosmology  #####
+#### that mimics the data #####
+###############################
+def MyCosmology(cosmo):
+
+    #mycosmo = cosmology.FlatLambdaCDM(name='Cosmology for the cone', Oc0=0.25886, Ob0=0.0487, Om0=0.315, H0=67.3,sigma8=0.829)
+
+
+    mycosmo = cosmology.FlatLambdaCDM(name='Cosmology for the cone', Om0=0.315, H0=67.3)
+
+    print "WARNING: I am not sure this universe is totally OK. Improve the values."
+
+    """
+    R's parameters:
+    H0 = 67.3
+    O_M = 0.315
+    O_b = 0.0487
+    n = 0.96
+    sigma_8 = 0.829,
+    O_L=0.685 (obvious if universe if flat)
+    """
+
+    print mycosmo
+
+    return mycosmo
+
 
 
 
@@ -124,8 +176,10 @@ def open_lightcone(file_number):
 
     # Lightcones path
     conepath = "./data/lightcones/"
-    conename = "wmap1_bc03_" + str(file_number).zfill(3) + "_igm1.fits"
-    #conename = "P1_M05_Ks28.fits"
+    #conename = "wmap1_bc03_" + str(file_number).zfill(3) + "_igm1.fits" # First file given by R. WMAP Cosmology. Outdated.
+    #conename = "P1_M05_Ks28.fits" # Second file given by R. Planck Cosmology. Contains unconsistent information. Outdated.
+    #conename = "P1_M05_001_Sep12_ks27.fits"  # Third file given by R. Planck Cosmology. Outdated because missing some columns.
+    conename = "planck1_m05_002_igm1_nov7.fits" # 4th file given by R. Planck Cosmology. 
     plot_directory = "./plots/"+conename[0:-5]+"/"
     if not os.path.exists(plot_directory) : os.mkdir(plot_directory)
 
@@ -152,6 +206,15 @@ def open_lightcone(file_number):
     hdulist.close()
 
     print "There are " + str(len(allcone)) + " objects in the cone."
+    print cols
+
+    #badRApositions = np.where(allcone['RA']>180.)[0]
+    #for e in allcone[badRApositions]:
+    #    e['RA'] -= 360.
+
+    #print (allcone[(np.where(allcone['RA']>180.))[0]])['RA']
+
+    #print allcone['RA']
 
     info_FoV(Lightcones_FoV)
 
@@ -165,11 +228,50 @@ def open_lightcone(file_number):
     plt.title("Redshift distribution for the lightcone")
     plt.xlabel("Apparent Redshift (Z_APP)")
     plt.ylabel("#")
-    plt.hist(cone['Z_APP'], bins=200)
+    plt.hist(allcone['Z_APP'], bins=200)
     plt.show()
     savemyplot(fig, "z_dist")
     plt.close()
     """
+
+
+    """
+    Just playing with the files: NP distribution.
+    """
+    """
+    fig = plt.figure()
+    plt.title("NP distribution for the lightcone")
+    plt.xlabel("NP")
+    plt.ylabel("#")
+    plt.hist(allcone['NP'], bins=200, range=[0, 400],)
+    plt.show()
+    savemyplot(fig, "NP_dist")
+    plt.close()
+    """
+
+
+##############################
+#### Number of particles #####
+##############################
+def subsample_NP(NPmin):
+    global allcone
+    allcone = allcone[np.where(allcone['NP']>=NPmin)]
+
+
+    """
+    Just playing with the files: NP distribution after truncating NP.
+    """
+
+    fig = plt.figure()
+    plt.title("NP distribution after truncation")
+    plt.xlabel("NP")
+    plt.ylabel("#")
+    plt.hist(allcone['NP'], bins=200, range=[0, 400],)
+    #plt.show()
+    savemyplot(fig, "NP_dist_truncated")
+    plt.close()
+
+
 
 
 ##################################
@@ -252,12 +354,14 @@ def look_overdense(sky_objects):
     lbin = 10 * u.Mpc
 
     # selects only the objects in the right RA-Dec square
-    xsize = lllon - urlon
+    print lllon, urlon
+    print urlat, lllat
+    xsize = np.abs(lllon - urlon)
     ysize = urlat - lllat
 
     # Initial redshift
     zdown = 1.8
-    zup = 1.85
+    zup = 1.9
 
     z = zdown
 
@@ -267,17 +371,21 @@ def look_overdense(sky_objects):
 
         # TODO HAVE TO CHANGE RA BECAUSE IT MUST BE 360 ! FOR THE OTHER FILE !
 
-        xybin_exact = (lbin / cosmo.kpc_comoving_per_arcmin(z)).to(u.deg)
+
+        xybin_exact = (lbin / mycosmo.kpc_comoving_per_arcmin(z)).to(u.deg)
         nbinsx = np.round(xsize/xybin_exact)
         xbin = xsize / nbinsx
         nbinsy = np.round(ysize/xybin_exact)
         ybin = ysize / nbinsy
 
+        print xybin_exact, xsize, lbin, mycosmo.kpc_comoving_per_arcmin(z)
+        print nbinsx, nbinsy
         density = np.empty([nbinsx, nbinsy])
+        
 
 
         # Cut a redshift slice of depth lbin (converted in z)
-        zinc = z_at_value(cosmo.comoving_distance, cosmo.comoving_distance(z) + lbin)
+        zinc = z_at_value(mycosmo.comoving_distance, mycosmo.comoving_distance(z) + lbin)
         mask_down = sky_objects.field('Z_APP') > z
         mask_up = sky_objects.field('Z_APP') <= zinc
         mask_slice = mask_down & mask_up
@@ -303,6 +411,7 @@ def look_overdense(sky_objects):
                 cone_cube = cone_slice[mask_coord]
                 n_objects_cube = len(cone_cube)
                 density[ny][nx] = n_objects_cube / float(n_objects_slice)
+                #print density[ny][nx]
 
 
         z = zinc
@@ -478,6 +587,7 @@ def selec_gauss():
     print "##################################################"
 
     global list_GALID, cone_selection, selection
+
 
     list_GALID = []
     selection = [] # Table of all data for selected objects (all redshift samples)
@@ -857,6 +967,8 @@ def selec_simple():
         mask = mask_mag & mask_z
 
         cone_simple = allcone[mask]
+        
+        print len(cone_simple)
 
         selection.append(Table(cone_simple))
 
@@ -1033,6 +1145,53 @@ def selec_3colors_CFHTLS():
     print color_selection_CFHTLS
     ascii.write(color_selection_CFHTLS, plot_directory+'color_selection_CFHTLS.txt', format=table_write_format)
 
+
+
+def compute_densities(sky_objects):
+
+    # Sorts the table by comobile distances
+    sky_objects = sort_D_como(sky_objects)
+
+    search_radii = [1., 2.5, 5., 10.] #*u.Mpc
+    max_radius = max(search_radii)
+
+    # Loops over all particles, from nearby to far.
+    for galaxy in sky_objects:
+
+        # Selects the close particles in D_COMOVING (z)
+        # Dirty strategy: simple selection
+        # Clever strategy?: TBD if dirty is time consuming: find the 1st object too far in each direction, they are ordered, so no need for a loop on all objects!
+        d_comov = galaxy["D_COMOVING"]
+        slice_objects = sky_objects[np.where(np.abs(sky_objects["D_COMOVING"]-d_comov)<max_radius)]
+        print "There are "+str(len(slice_objects)) + " objects in this slice, around z=" + str(galaxy["Z_APP"])
+
+        # Computes delimitations in RA, Dec
+
+
+
+
+        # Selects inside RA, Dec
+
+        # Computes the distances for each object in the box
+
+        # Check that each object is inside the sphere, not just inside the cube
+
+        # get densities over smaller spheres
+
+        # Order and get Nth nearby object
+
+
+
+
+def sort_D_como(sky_objects):
+
+    sky_objects.sort("D_COMOVING")
+    print sky_objects["Z_APP", "D_COMOVING"]
+
+    print mycosmo.comoving_distance(7.35076)
+    print mycosmo.comoving_distance(1.50073)
+
+    return sky_objects
 
 
 
