@@ -187,7 +187,7 @@ def open_lightcone(file_number):
     #conename = "wmap1_bc03_" + str(file_number).zfill(3) + "_igm1.fits" # First file given by R. WMAP Cosmology. Outdated.
     #conename = "P1_M05_Ks28.fits" # Second file given by R. Planck Cosmology. Contains unconsistent information. Outdated.
     #conename = "P1_M05_001_Sep12_ks27.fits"  # Third file given by R. Planck Cosmology. Outdated because missing some columns.
-    conename = "planck1_m05_002_igm1_nov7.fits" # 4th file given by R. Planck Cosmology. 
+    conename = "planck1_m05_002_igm1_nov7.fits" # 4th file given by R. Planck Cosmology.
     plot_directory = "./plots/"+conename[0:-5]+"/"
     if not os.path.exists(plot_directory) : os.mkdir(plot_directory)
 
@@ -389,7 +389,7 @@ def look_overdense(sky_objects):
         print xybin_exact, xsize, lbin, mycosmo.kpc_comoving_per_arcmin(z)
         print nbinsx, nbinsy
         density = np.empty([nbinsx, nbinsy])
-        
+
 
 
         # Cut a redshift slice of depth lbin (converted in z)
@@ -975,7 +975,7 @@ def selec_simple():
         mask = mask_mag & mask_z
 
         cone_simple = allcone[mask]
-        
+
         print len(cone_simple)
 
         selection.append(Table(cone_simple))
@@ -1157,40 +1157,115 @@ def selec_3colors_CFHTLS():
 
 def compute_densities(sky_objects):
 
-    sky_objects = RADec2XY(sky_objects)
+    # to get distances in /h
+    hfactor = mycosmo.H0 / 100. / u.km * (u.Mpc * u.s)
 
-    # Sorts the table by comobile distances
-    sky_objects = sort_D_como(sky_objects)
-
-    search_radii = [1., 2.5, 5., 10.] #*u.Mpc
+    # has to be from mini to maxi :
+    search_radii = [1., 2.5, 5., 10.] * hfactor #*u.Mpc
     max_radius = max(search_radii)
 
-    # Loops over all particles, from nearby to far.
-    for galaxy in sky_objects:
+    N_nearest = [3, 5]
+    N_max = max(N_nearest)
 
-        # Selects the close particles in D_COMOVING (z)
-        # Dirty strategy: simple selection
-        # Clever strategy?: TBD if dirty is time consuming: find the 1st object too far in each direction, they are ordered, so no need for a loop on all objects!
-        d_comov = galaxy["D_COMOVING"]
-        slice_objects = sky_objects[np.where(np.abs(sky_objects["D_COMOVING"]-d_comov)<max_radius)]
-        print "There are "+str(len(slice_objects)) + " objects in this slice, around z=" + str(galaxy["Z_APP"])
+    densities = np.array([])
 
-        # Computes delimitations in RA, Dec
+    skip_calculation_densities = False
+    if skip_calculation_densities is False:
+
+        sky_objects = RADec2XY(sky_objects, hfactor)
+
+        # Sorts the table by comobile distances
+        sky_objects = sort_D_como(sky_objects)
+
+        print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+        # Loops over all particles, from nearby to far.
+        for galaxy in sky_objects:
+
+            # Selects the close particles in D_COMOVING (z)
+            # Dirty strategy: simple selection
+            # Clever strategy?: TBD if dirty is time consuming: find the 1st object too far in each direction, they are ordered, so no need for a loop on all objects!
+            d_comov = galaxy["D_COMOVING"]
+            slice_objects = sky_objects[np.where(np.abs(sky_objects["D_COMOVING"]-d_comov)<max_radius)]
+
+            # print "There are "+str(len(slice_objects)) + " objects in this slice, around z=" + str(galaxy["Z_APP"])
+
+            # Object position X, Y (for the larger radius)
+            Xpos, Ypos = galaxy["X_COMOVING"], galaxy["Y_COMOVING"]
+
+
+            # Selects objects inside the spatial limits
+            objects_in_cube = slice_objects[(np.abs(slice_objects["X_COMOVING"] - Xpos)<=max_radius) & (np.abs(slice_objects["Y_COMOVING"] - Ypos)<=max_radius)]
+
+            test_selection_cube = False
+            if test_selection_cube:
+                #if len(objects_in_cube) > 30:
+                test_selected_cube(slice_objects, objects_in_cube)
+
+            # Computes the distances for each object in the box
+            dist2galaxy = np.sqrt( (objects_in_cube["X_COMOVING"] - Xpos)**2. + (objects_in_cube["Y_COMOVING"] - Ypos)**2. + (objects_in_cube["D_COMOVING"] - d_comov)**2. )
+            col_dist = Column(data=dist2galaxy, name="distances")
+            objects_in_cube.add_column(col_dist)
+
+            # Get densities inside each sphere inside the cube
+            for radius in search_radii:
+                densities = np.append(densities, len(np.where(dist2galaxy <= radius)[0]))
+
+            # Order and get Nth nearby object
+            # if the last element of densities is greater than N_max, then
+            # it means that there is no need for more computation for finding the nearest neighbours
+            if densities[-1] > N_max:
+                objects_in_cube.sort("distances")
+                neighbours_and_distances = []
+                for Ni in N_nearest:
+                    neighbours_and_distances.append([objects_in_cube[Ni]["GALAXYID"], objects_in_cube[Ni]["distances"]])
+                #print objects_in_cube
+                #print neighbours_and_distances
 
 
 
 
-        # Selects inside RA, Dec
+        print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
-        # Computes the distances for each object in the box
+        # Saves densities in the table
+        densities = densities.reshape(len(sky_objects), 4)
+        print densities[:,0]
+        densityR1 = Column(data=densities[:,0], name="DensityR1Mpc")
+        densityR2p5 = Column(data=densities[:,1], name="DensityR2p5Mpc")
+        densityR5 = Column(data=densities[:,2], name="DensityR5Mpc")
+        densityR10 = Column(data=densities[:,3], name="DensityR10Mpc")
+        sky_objects.add_column(densityR1)
+        sky_objects.add_column(densityR2p5)
+        sky_objects.add_column(densityR5)
+        sky_objects.add_column(densityR10)
 
-        # Check that each object is inside the sphere, not just inside the cube
+        ascii.write(sky_objects, plot_directory+'selection_with_densities.txt', format=table_write_format)
 
-        # get densities over smaller spheres
+    else:
+        sky_objects = Table.read(plot_directory+'selection_with_densities.txt', format=table_read_format)
 
-        # Order and get Nth nearby object
+    fig = plt.figure()
+    plt.title("Densities")
+    plt.xlabel("Density")
+    plt.ylabel("#")
+    plt.hist([sky_objects['DensityR1Mpc'], sky_objects['DensityR2p5Mpc'], sky_objects['DensityR5Mpc'], sky_objects['DensityR10Mpc']], bins=np.arange(30), label=['1Mpc', '2.5Mpc', '5Mpc', '10Mpc'])
+    plt.show()
+    savemyplot(fig, "Densities")
+    plt.close()
 
 
+
+def test_selected_cube(slice_objects, objects_in_cube):
+
+    fig = plt.figure()
+    plt.title("Slice with the selected cube")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.plot(slice_objects["X_COMOVING"], slice_objects["Y_COMOVING"], "xb")
+    plt.plot(objects_in_cube["X_COMOVING"], objects_in_cube["Y_COMOVING"], "xr")
+    plt.show()
+    #savemyplot(fig, "test_selected_cube")
+    plt.close()
 
 
 def sort_D_como(sky_objects):
@@ -1203,7 +1278,7 @@ def sort_D_como(sky_objects):
 
     return sky_objects
 
-def RADec2XY(sky_objects):
+def RADec2XY(sky_objects, hfactor):
 
     # Comoving positions
     X_comoving = np.array([])
@@ -1219,12 +1294,11 @@ def RADec2XY(sky_objects):
         Dec = galaxy["DEC"] * u.deg
         #print mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"])
         #print (mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"])).to(u.kpc/u.deg)
-        kpc_per_deg = mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"]).to(u.kpc/u.deg)
+        Mpc_per_deg = mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"]).to(u.Mpc/u.deg)
 
-        # My distances are in Mpc/h:
-        hfactor = mycosmo.H0 / 100. / u.km * (u.Mpc * u.s)
-        X_comoving = np.append(X_comoving, RA * kpc_per_deg / hfactor)
-        Y_comoving = np.append(Y_comoving, Dec * kpc_per_deg / hfactor)
+        # Distances to be in Mpc/h:
+        X_comoving = np.append(X_comoving, RA * Mpc_per_deg * hfactor)
+        Y_comoving = np.append(Y_comoving, Dec * Mpc_per_deg * hfactor)
 
         #print galaxy["RA"], galaxy["DEC"]
         #print X, Y
@@ -1236,7 +1310,9 @@ def RADec2XY(sky_objects):
 
     #print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
-    #check_diff_RADec_XY(sky_objects)
+    check_positions = False
+    if check_positions:
+        check_diff_RADec_XY(sky_objects)
 
     return sky_objects
 
