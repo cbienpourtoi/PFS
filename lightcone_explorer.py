@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from astropy.io import fits
 from astropy.io import ascii
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, Column
 #from astropy.cosmology.parameters import WMAP9 # depreciated since astropy 0.4
 # from astropy.cosmology import comoving_distance # depreciated since astropy 0.4
 from astropy.cosmology import Planck13 as cosmo
@@ -47,6 +47,10 @@ from numpy.lib.recfunctions import append_fields
 
 
 table_write_format = 'fixed_width'
+table_read_format = 'ascii.'+table_write_format
+
+# Set as True if you dont want to re-read the initial catalog, but only take the last saved selection (gaussian, usually)
+read_selection_only = True
 
 
 def savemyplot(fig, name):
@@ -80,28 +84,32 @@ def main():
     file_number = 1
     open_lightcone(file_number)
 
+    if read_selection_only is False:
 
-    NPmin = 50 #Number of particles to consider for an object (20 is the selection from the catalog itself)
-    subsample_NP(NPmin)
+        # Selects by Number of particles
+        # Takes 10 secs
+        NPmin = 50 #Number of particles to consider for an object (20 is the selection from the catalog itself)
+        subsample_NP(NPmin)
 
-    #test_z2()
-    #sys.exit()
+        #test_z2()
+        #sys.exit()
 
 
-    do_selection = False
-    if do_selection:
         sky_objects = selec_gauss()
         #sky_objects = selec_3colors()
         #sky_objects = selec_simple()
         ascii.write(sky_objects, plot_directory+'current_selection.txt', format=table_write_format)
+
     else:
-       sky_objects = ascii.read(plot_directory+'current_selection.txt', format=table_write_format)
 
-
+       sky_objects = Table.read(plot_directory+'current_selection.txt', format=table_read_format)
 
 
     compute_densities(sky_objects)
 
+
+
+    sys.exit()
 
     slices_and_maps = look_overdense(sky_objects)
 
@@ -1149,6 +1157,8 @@ def selec_3colors_CFHTLS():
 
 def compute_densities(sky_objects):
 
+    sky_objects = RADec2XY(sky_objects)
+
     # Sorts the table by comobile distances
     sky_objects = sort_D_como(sky_objects)
 
@@ -1193,6 +1203,74 @@ def sort_D_como(sky_objects):
 
     return sky_objects
 
+def RADec2XY(sky_objects):
+
+    # Comoving positions
+    X_comoving = np.array([])
+    Y_comoving = np.array([])
+
+
+    #print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+    # takes 10s
+    for galaxy in sky_objects:
+
+        RA = galaxy["RA"] * u.deg
+        Dec = galaxy["DEC"] * u.deg
+        #print mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"])
+        #print (mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"])).to(u.kpc/u.deg)
+        kpc_per_deg = mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"]).to(u.kpc/u.deg)
+
+        # My distances are in Mpc/h:
+        hfactor = mycosmo.H0 / 100. / u.km * (u.Mpc * u.s)
+        X_comoving = np.append(X_comoving, RA * kpc_per_deg / hfactor)
+        Y_comoving = np.append(Y_comoving, Dec * kpc_per_deg / hfactor)
+
+        #print galaxy["RA"], galaxy["DEC"]
+        #print X, Y
+
+    Xcol = Column(X_comoving, name='X_COMOVING')
+    Ycol = Column(Y_comoving, name='Y_COMOVING')
+    sky_objects.add_column(Xcol)
+    sky_objects.add_column(Ycol)
+
+    #print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+    #check_diff_RADec_XY(sky_objects)
+
+    return sky_objects
+
+
+# this makes plots of the maps in RA Dec and in X Y, to check if they are similar (and they are... at least they seem to be...)
+def check_diff_RADec_XY(sky_objects):
+
+    selec_slice = sky_objects[np.where(np.abs(sky_objects["D_COMOVING"] - 5000.)<50)]
+    print len(selec_slice)
+    print selec_slice
+    print selec_slice["X_COMOVING"], selec_slice["Y_COMOVING"]
+
+    fig = plt.figure()
+    plt.title("XY to compare with RA Dec")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.plot(selec_slice["X_COMOVING"], selec_slice["Y_COMOVING"], "x")
+    plt.show()
+    savemyplot(fig, "XY")
+    plt.close()
+
+
+    fig = plt.figure(figsize=(10, 10))
+    #lons_selection[np.where(lons_selection > 180.)] -= 360.
+    m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=-lllon, llcrnrlat=lllat, urcrnrlon=-urlon, urcrnrlat=urlat, celestial=True)  # Lattitudes and longtitudes
+    poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
+    m.drawparallels(poslines, labels=[1, 0, 0, 0])
+    m.drawmeridians(poslines, labels=[0, 0, 0, 1])
+    plt.title("RA Dec to compare with X Y")
+    x_selection, y_selection = m(selec_slice["RA"], selec_slice["DEC"])
+    m.scatter(x_selection, y_selection, 10, marker='o')
+    plt.show()
+    savemyplot(fig, "RADec")
+    plt.close()
 
 
 if __name__ == '__main__':
