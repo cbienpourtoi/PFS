@@ -73,6 +73,9 @@ def main():
 
     # Defines the cosmology to be compatible with the simulation
     mycosmo = MyCosmology(cosmo)
+    # to get distances in /h
+    hfactor = mycosmo.H0 / 100. / u.km * (u.Mpc * u.s)
+
 
     creates_tables()
 
@@ -105,7 +108,17 @@ def main():
        sky_objects = Table.read(plot_directory+'current_selection.txt', format=table_read_format)
 
 
-    compute_densities(sky_objects)
+    # Works only if beam is circular AND centered on (0,0) !
+    radius_beam = 1. #deg
+    Xcenter, Ycenter = 0., 0.
+    sky_objects = distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor)
+
+    ascii.write(sky_objects, plot_directory+'current_selection_with_borders.txt', format=table_write_format)
+
+    #simple_sky_plot(sky_objects)
+
+
+    compute_densities(sky_objects, hfactor)
 
 
 
@@ -122,6 +135,62 @@ def main():
     #sys.exit()
 
     plot_sky_animate()
+
+
+
+def distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor):
+
+    distance_to_border_deg = np.zeros(len(sky_objects))
+    distance_to_border_Mpch = distance_to_border_deg
+    dist_2_border_deg_column = Column(data=distance_to_border_deg, name="distance_to_border_deg")
+    sky_objects.add_column(dist_2_border_deg_column)
+    dist_2_border_Mpch_column = Column(data=distance_to_border_Mpch, name="distance_to_border_Mpch")
+    sky_objects.add_column(dist_2_border_Mpch_column)
+
+    print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+    for object in sky_objects:
+
+        distance_to_center_deg = np.sqrt((object["RA"]-Xcenter)**2. + (object["DEC"]-Ycenter)**2.)
+        object["distance_to_border_deg"] = radius_beam - distance_to_center_deg
+
+        Mpc_per_deg = mycosmo.kpc_comoving_per_arcmin(object["Z_APP"]).to(u.Mpc/u.deg)
+        object["distance_to_border_Mpch"] = object["distance_to_border_deg"] * Mpc_per_deg * hfactor
+
+    print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+    return sky_objects
+
+
+
+###################################
+#### Plots objects in the sky  ####
+#### according to RA, Dec      ####
+###################################
+def simple_sky_plot(sky_objects):
+
+    fig = plt.figure(figsize=(10, 10))
+    m = Basemap(projection='merc', lon_0=0, lat_0=0, llcrnrlon=-lllon, llcrnrlat=lllat, urcrnrlon=-urlon, urcrnrlat=urlat, celestial=True)  # Lattitudes and longtitudes
+    poslines = [-0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8]
+    m.drawparallels(poslines, labels=[1, 0, 0, 0])
+    m.drawmeridians(poslines, labels=[0, 0, 0, 1])
+    plt.title("Simple sky plot")
+    x_selection, y_selection = m(sky_objects["RA"], sky_objects["DEC"])
+    m.scatter(x_selection, y_selection, 10, marker='o')
+    #plt.show()
+    savemyplot(fig, "all_sky_selection_basemap")
+    plt.close()
+
+
+    sky_objects_border = sky_objects[np.where(sky_objects["distance_to_border_deg"]>0.1)]
+    fig = plt.figure(figsize=(10, 10))
+    plt.title("Simple sky plot")
+    plt.plot(sky_objects["RA"], sky_objects["DEC"], '.r')
+    plt.plot(sky_objects_border["RA"], sky_objects_border["DEC"], '.b')
+    plt.show()
+    savemyplot(fig, "all_sky_selection")
+    plt.close()
+
 
 
 ###############################
@@ -1154,11 +1223,11 @@ def selec_3colors_CFHTLS():
     ascii.write(color_selection_CFHTLS, plot_directory+'color_selection_CFHTLS.txt', format=table_write_format)
 
 
-
-def compute_densities(sky_objects):
-
-    # to get distances in /h
-    hfactor = mycosmo.H0 / 100. / u.km * (u.Mpc * u.s)
+# Code to compute the densities and the nearest neighbours
+# TODO: avoid the np.append, create columns full of zeros before the loop in the Table, and fill them automatically
+# TODO: Density in Mpch ou Mpc?
+# TODO: Nearest neighbour distance in Mpch or Mpc right now??? Put unit in colum name also ! (It is Mpc/h I think but it is late now)
+def compute_densities(sky_objects, hfactor):
 
     # has to be from mini to maxi :
     search_radii = [1., 2.5, 5., 10.] * hfactor #*u.Mpc
@@ -1204,7 +1273,7 @@ def compute_densities(sky_objects):
 
             test_selection_cube = False
             if test_selection_cube:
-                #if len(objects_in_cube) > 30:
+                #if len(objects_in_cube) > 15:
                 test_selected_cube(slice_objects, objects_in_cube)
 
             # Computes the distances for each object in the box
@@ -1321,11 +1390,14 @@ def select_nearest_neighbours(objects_in_cube, N_nearest):
 
 def test_selected_cube(slice_objects, objects_in_cube):
 
+    slice_objects_borders = slice_objects[np.where(slice_objects["distance_to_border_Mpch"]<7.)]
+
     fig = plt.figure()
     plt.title("Slice with the selected cube")
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.plot(slice_objects["X_COMOVING"], slice_objects["Y_COMOVING"], "xb")
+    plt.plot(slice_objects_borders["X_COMOVING"], slice_objects_borders["Y_COMOVING"], "xg")
     plt.plot(objects_in_cube["X_COMOVING"], objects_in_cube["Y_COMOVING"], "xr")
     plt.show()
     #savemyplot(fig, "test_selected_cube")
@@ -1342,6 +1414,8 @@ def sort_D_como(sky_objects):
 
     return sky_objects
 
+
+# Translates coordinates in RA, Dec to Comoving X, Y.
 def RADec2XY(sky_objects, hfactor):
 
     # Comoving positions
