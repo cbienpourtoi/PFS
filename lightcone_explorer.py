@@ -79,14 +79,24 @@ def main():
 
     creates_tables()
 
+    ###########################
+    #### CFHTLS comparison ####
+    ####   (on standby)    ####
+    ###########################
     #open_CFHTLS(1)
     #selec_3colors_CFHTLS()
     #sys.exit()
 
 
+    #########################
+    #### reads lightcone ####
+    #########################
     file_number = 1
     open_lightcone(file_number)
 
+    ##########################
+    #### Selects galaxies ####
+    ##########################
     if read_selection_only is False:
 
         # Selects by Number of particles
@@ -95,34 +105,46 @@ def main():
         subsample_NP(NPmin)
 
         #test_z2()
-        #sys.exit()
 
-
+        # Choose here between 3 selection methods:
         sky_objects = selec_gauss()
         #sky_objects = selec_3colors()
         #sky_objects = selec_simple()
+
         ascii.write(sky_objects, plot_directory+'current_selection.txt', format=table_write_format)
 
     else:
-
        sky_objects = Table.read(plot_directory+'current_selection.txt', format=table_read_format)
 
 
+    ################################
+    ####   Compute distances to ####
+    #### the border of the beam ####
+    ################################
     # Works only if beam is circular AND centered on (0,0) !
+    # Usefull for taking care of border effects
     radius_beam = 1. #deg
     Xcenter, Ycenter = 0., 0.
     sky_objects = distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor)
-
     ascii.write(sky_objects, plot_directory+'current_selection_with_borders.txt', format=table_write_format)
 
     #simple_sky_plot(sky_objects)
 
-
-    compute_densities(sky_objects, hfactor)
+    ##############################
+    #  Densities and Nearby   ####
+    # Neighbours computation: ####
+    ##############################
+    compute_densities_and_NN = True
+    if compute_densities_and_NN:
+        sky_objects = compute_densities(sky_objects, hfactor)
+    else:
+        sky_objects = Table.read(plot_directory+'selection_with_densities.txt', format=table_read_format)
 
 
 
     sys.exit()
+
+
 
     slices_and_maps = look_overdense(sky_objects)
 
@@ -130,8 +152,6 @@ def main():
 
     for i in np.arange(10):
         plot_sky(slices_and_maps[i][0], slices_and_maps[i][1], slices_and_maps[i][2])
-
-
     #sys.exit()
 
     plot_sky_animate()
@@ -1267,7 +1287,7 @@ def compute_densities(sky_objects, hfactor):
         sky_objects = sort_D_como(sky_objects)
 
         # Just some simple tests:
-        tests_redshifts(sky_objects, hfactor)
+        #tests_redshifts(sky_objects, hfactor)
 
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
@@ -1365,6 +1385,7 @@ def compute_densities(sky_objects, hfactor):
 
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
+    return sky_objects
 
 ####################################
 ####     Slices a lightcone     ####
