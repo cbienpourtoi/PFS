@@ -1223,22 +1223,43 @@ def selec_3colors_CFHTLS():
     ascii.write(color_selection_CFHTLS, plot_directory+'color_selection_CFHTLS.txt', format=table_write_format)
 
 
-# Code to compute the densities and the nearest neighbours
-# TODO: avoid the np.append, create columns full of zeros before the loop in the Table, and fill them automatically
-# TODO: Density in Mpch ou Mpc?
-# TODO: Nearest neighbour distance in Mpch or Mpc right now??? Put unit in colum name also ! (It is Mpc/h I think but it is late now)
+####################################
+####   Compute the densities    ####
+#### and the nearest neighbours ####
+####################################
 def compute_densities(sky_objects, hfactor):
 
-    # has to be from mini to maxi :
-    search_radii = [1., 2.5, 5., 10.] * hfactor #*u.Mpc
-    max_radius = max(search_radii)
 
+    ### DENSITIES IN SPHERES - initialization
+    # Makes a table of the radii on which computing the densities.
+    # If you want to change teh radii, change search_radii and search_radii_names accordingly.
+    search_radii = [0.5, 1., 2.5, 5., 10.] * hfactor #*u.Mpc
+    search_radii_names = ["DensityR0p5Mpc", "DensityR1Mpc", "DensityR2p5Mpc", "DensityR5Mpc", "DensityR10Mpc"]
+    densities_table = Table([search_radii, search_radii_names], names=('search_radii', 'column_names'), meta={'name': 'table of the densities'})
+    densities_table.sort('search_radii')
+    max_radius = max(densities_table['search_radii'])
+
+    # Adds density columns in the table of results
+    for densities_row in densities_table:
+        sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=densities_row['column_names']))
+
+
+
+    ### NEAREST NEIGHBOURS - initialization
     N_nearest = [3, 5]
-    N_max = max(N_nearest)
+    N_nearest_names = []
+    for N_near in N_nearest:
+        N_nearest_names.append("Dist_nearest_"+str(N_near)+"_in_Mpc/h")
 
-    densities = np.array([])
-    neighbour_distances = np.array([])
+    N_nearest_table = Table([N_nearest, N_nearest_names], names=('N_nearest', 'column_names'), meta={'name': 'table of the nearest neighbours'})
+    N_nearest_table.sort('N_nearest')
+    N_max = max(N_nearest_table['N_nearest'])
 
+    for N_nearest_row in N_nearest_table:
+        sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=N_nearest_row['column_names']))
+
+
+    ### DENSITIES - computation (also computes some nearest neighbours)
     skip_calculation_densities = False
     if skip_calculation_densities is False:
 
@@ -1283,38 +1304,20 @@ def compute_densities(sky_objects, hfactor):
             #objects_in_cube.add_column(col_dist)
 
             # Get densities inside each sphere inside the cube
-            for radius in search_radii:
-                densities = np.append(densities, len(np.where(objects_in_cube["distances"] <= radius)[0]))
+            for densities_row in densities_table:
+                galaxy[densities_row["column_names"]] = len(np.where(objects_in_cube["distances"] <= densities_row["search_radii"])[0])
+
 
             # Order and get Nth nearby object
-            # if the last element of densities is greater than N_max, then
+            # if the density in the larger sphere is greater than N_max, then
             # it means that there is no need for more computation for finding the nearest neighbours
-            if densities[-1] > N_max:
-                neighbour_distances = np.append(neighbour_distances, select_nearest_neighbours(objects_in_cube, N_nearest))
-                #for Ni in N_nearest:
-                    #neighbour_distances = np.append(neighbour_distances, objects_in_cube[Ni]["distances"])
-            else:
-                neighbour_distances = np.append(neighbour_distances, np.zeros(shape=len(N_nearest)))
+            # galaxy[densities_table[-1]["column_names"]] : -1 works because the densities_table is orders, so -1 gets the largest radius
+            if galaxy[densities_table[-1]["column_names"]] > N_max:
+                neighbour_distances = select_nearest_neighbours(objects_in_cube, N_nearest_table["N_nearest"])
+                for i in np.arange(len(N_nearest_table)):
+                    galaxy[N_nearest_table[i]["column_names"]] = neighbour_distances[i]
 
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
-
-        # Saves densities in the table
-        densities = densities.reshape(len(sky_objects), 4)
-        print densities[:,0]
-        densityR1 = Column(data=densities[:,0], name="DensityR1Mpc")
-        densityR2p5 = Column(data=densities[:,1], name="DensityR2p5Mpc")
-        densityR5 = Column(data=densities[:,2], name="DensityR5Mpc")
-        densityR10 = Column(data=densities[:,3], name="DensityR10Mpc")
-        sky_objects.add_column(densityR1)
-        sky_objects.add_column(densityR2p5)
-        sky_objects.add_column(densityR5)
-        sky_objects.add_column(densityR10)
-
-        # Saves the distances to nearest neighbours in the table
-        neighbour_distances = neighbour_distances.reshape(len(sky_objects), len(N_nearest))
-        print neighbour_distances
-        for i in np.arange(len(N_nearest)):
-            sky_objects.add_column(Column(data=neighbour_distances[:,i], name="Dist_nearest_"+str(N_nearest[i])))
 
 
         ascii.write(sky_objects, plot_directory+'selection_with_densities.txt', format=table_write_format)
@@ -1323,7 +1326,7 @@ def compute_densities(sky_objects, hfactor):
         sky_objects = Table.read(plot_directory+'selection_with_densities.txt', format=table_read_format)
 
 
-    print "I found "+str(np.count_nonzero(sky_objects["Dist_nearest_5"]))+ " distances for the 5th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
+    print "I found "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[i]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
 
     fig = plt.figure()
@@ -1336,13 +1339,14 @@ def compute_densities(sky_objects, hfactor):
     plt.close()
 
 
+    ### NEAREST NEIGHBOURS - computation
     # 2nd loop to get the nearest neighbours that I did not get in the first loop.
-    while np.any(sky_objects["Dist_nearest_5"] == 0):
+    while np.any(sky_objects[N_nearest_table[-1]["column_names"]] == 0):
         max_radius *= 2.
         print "Search radius is now set to "+str(max_radius)+"Mpc/h"
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
         for galaxy in sky_objects:
-            if galaxy["Dist_nearest_5"] == 0:
+            if galaxy[N_nearest_table[-1]["column_names"]] == 0:
 
                 d_comov = galaxy["D_COMOVING"]
                 slice_objects = sliceit(sky_objects, d_comov, max_radius)
@@ -1354,32 +1358,54 @@ def compute_densities(sky_objects, hfactor):
 
                 # Checks if we found enough nearby neighbours. Otherwise, it will try again at the next while with increased max_radius
                 if len(np.where(objects_in_cube["distances"] <= max_radius)[0]) > N_max:
-                    nearby = select_nearest_neighbours(objects_in_cube, N_nearest)
-                    for i in np.arange(len(N_nearest)):
-                        galaxy["Dist_nearest_"+str(N_nearest[i])] = nearby[i]
+                    nearby = select_nearest_neighbours(objects_in_cube, N_nearest_table["N_nearest"])
+                    for i in np.arange(len(N_nearest_table)):
+                        galaxy[N_nearest_table[i]["column_names"]] = nearby[i]
 
-        print "I now have "+str(np.count_nonzero(sky_objects["Dist_nearest_5"]))+ " distances for the 5th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
+        print "I now have "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[i]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
         ascii.write(sky_objects, plot_directory+'selection_with_densities.txt', format=table_write_format)
 
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
 
+####################################
+####     Slices a lightcone     ####
+#### between d_comov-max_radius ####
+####  and d_comov+max_radius    ####
+####################################
 def sliceit(sky_objects, d_comov, max_radius):
     slice_objects = sky_objects[np.where(np.abs(sky_objects["D_COMOVING"]-d_comov)<max_radius)]
     return slice_objects
 
+
+####################################
+####  Takes a cube in a slice   ####
+####     (selects in X, Y)      ####
+####################################
 def cubeit(slice_objects, Xpos, Ypos, max_radius):
     objects_in_cube = slice_objects[(np.abs(slice_objects["X_COMOVING"] - Xpos) <= max_radius) & (np.abs(slice_objects["Y_COMOVING"] - Ypos) <= max_radius)]
     return objects_in_cube
 
 
+####################################
+####  Computes distances in 3D  ####
+####  between all objects in a  ####
+#### table and a point X,Y,Z    ####
+####################################
 def get_distances(objects_in_cube, Xpos, Ypos, d_comov):
     dist2galaxy = np.sqrt( (objects_in_cube["X_COMOVING"] - Xpos)**2. + (objects_in_cube["Y_COMOVING"] - Ypos)**2. + (objects_in_cube["D_COMOVING"] - d_comov)**2. )
     col_dist = Column(data=dist2galaxy, name="distances")
     objects_in_cube.add_column(col_dist)
     return objects_in_cube
 
+########################################
+#### Selects the nearest neighbours ####
+#### (3, 5... given by N_nearest)   ####
+#### from the distances already     ####
+#### computed in the data table     ####
+####      (objects_in_cube)         ####
+########################################
 def select_nearest_neighbours(objects_in_cube, N_nearest):
     objects_in_cube.sort("distances")
     distances_of_nearby = np.array([])
@@ -1388,6 +1414,9 @@ def select_nearest_neighbours(objects_in_cube, N_nearest):
     return distances_of_nearby
 
 
+###############################
+#### Just some plot tests  ####
+###############################
 def test_selected_cube(slice_objects, objects_in_cube):
 
     slice_objects_borders = slice_objects[np.where(slice_objects["distance_to_border_Mpch"]<7.)]
@@ -1404,6 +1433,10 @@ def test_selected_cube(slice_objects, objects_in_cube):
     plt.close()
 
 
+############################
+#### Sorts a table by   ####
+#### comoving distances ####
+############################
 def sort_D_como(sky_objects):
 
     sky_objects.sort("D_COMOVING")
@@ -1414,8 +1447,10 @@ def sort_D_como(sky_objects):
 
     return sky_objects
 
-
-# Translates coordinates in RA, Dec to Comoving X, Y.
+######################################
+####    Translates coordinates    ####
+#### in RA, Dec to Comoving X, Y. ####
+######################################
 def RADec2XY(sky_objects, hfactor):
 
     # Comoving positions
@@ -1454,8 +1489,12 @@ def RADec2XY(sky_objects, hfactor):
 
     return sky_objects
 
-
-# this makes plots of the maps in RA Dec and in X Y, to check if they are similar (and they are... at least they seem to be...)
+######################################
+####      plots of the maps in    ####
+####       RA Dec and in X Y,     ####
+#### to check if they are similar ####
+######################################
+#   (and they are... at least they seem to be...)
 def check_diff_RADec_XY(sky_objects):
 
     selec_slice = sky_objects[np.where(np.abs(sky_objects["D_COMOVING"] - 5000.)<50)]
