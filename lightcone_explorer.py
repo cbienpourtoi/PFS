@@ -1229,7 +1229,6 @@ def selec_3colors_CFHTLS():
 ####################################
 def compute_densities(sky_objects, hfactor):
 
-
     ### DENSITIES IN SPHERES - initialization
     # Makes a table of the radii on which computing the densities.
     # If you want to change teh radii, change search_radii and search_radii_names accordingly.
@@ -1242,7 +1241,6 @@ def compute_densities(sky_objects, hfactor):
     # Adds density columns in the table of results
     for densities_row in densities_table:
         sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=densities_row['column_names']))
-
 
 
     ### NEAREST NEIGHBOURS - initialization
@@ -1290,8 +1288,6 @@ def compute_densities(sky_objects, hfactor):
             # Selects objects inside the spatial limits
             objects_in_cube = cubeit(slice_objects, Xpos, Ypos, max_radius)
 
-            #objects_in_cube = slice_objects[(np.abs(slice_objects["X_COMOVING"] - Xpos)<=max_radius) & (np.abs(slice_objects["Y_COMOVING"] - Ypos)<=max_radius)]
-
             test_selection_cube = False
             if test_selection_cube:
                 #if len(objects_in_cube) > 15:
@@ -1299,9 +1295,6 @@ def compute_densities(sky_objects, hfactor):
 
             # Computes the distances for each object in the box
             objects_in_cube = get_distances(objects_in_cube, Xpos, Ypos, d_comov)
-            #dist2galaxy = np.sqrt( (objects_in_cube["X_COMOVING"] - Xpos)**2. + (objects_in_cube["Y_COMOVING"] - Ypos)**2. + (objects_in_cube["D_COMOVING"] - d_comov)**2. )
-            #col_dist = Column(data=dist2galaxy, name="distances")
-            #objects_in_cube.add_column(col_dist)
 
             # Get densities inside each sphere inside the cube
             for densities_row in densities_table:
@@ -1329,6 +1322,7 @@ def compute_densities(sky_objects, hfactor):
     print "I found "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[i]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
 
+    """
     fig = plt.figure()
     plt.title("Densities")
     plt.xlabel("Density")
@@ -1337,7 +1331,7 @@ def compute_densities(sky_objects, hfactor):
     #plt.show()
     savemyplot(fig, "Densities")
     plt.close()
-
+    """
 
     ### NEAREST NEIGHBOURS - computation
     # 2nd loop to get the nearest neighbours that I did not get in the first loop.
