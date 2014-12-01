@@ -1266,6 +1266,9 @@ def compute_densities(sky_objects, hfactor):
         # Sorts the table by comobile distances
         sky_objects = sort_D_como(sky_objects)
 
+        # Just some simple tests:
+        tests_redshifts(sky_objects, hfactor)
+
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
         # Loops over all particles, from nearby to far.
@@ -1434,12 +1437,33 @@ def test_selected_cube(slice_objects, objects_in_cube):
 def sort_D_como(sky_objects):
 
     sky_objects.sort("D_COMOVING")
-    print sky_objects["Z_APP", "D_COMOVING"]
-
-    print mycosmo.comoving_distance(7.35076)
-    print mycosmo.comoving_distance(1.50073)
-
+    #print sky_objects["Z_APP", "D_COMOVING"]
     return sky_objects
+
+
+############################
+####    Tests redshifts ####
+############################
+def tests_redshifts(sky_objects, hfactor):
+
+    my_comov_APP = np.array([])
+    my_comov_GEO = np.array([])
+    for i in np.arange(len(sky_objects)):
+        my_comov_APP = np.append(my_comov_APP, mycosmo.comoving_distance(sky_objects[i]["Z_APP"])*hfactor)
+        my_comov_GEO = np.append(my_comov_GEO, mycosmo.comoving_distance(sky_objects[i]["Z_GEO"])*hfactor)
+
+    fig = plt.figure()
+    plt.title("table vs cosmology calc")
+    plt.xlabel("D_COMOV")
+    plt.ylabel("My D_COMOV_APP")
+    plt.plot(sky_objects["D_COMOVING"], my_comov_APP, ".", label="APP")
+    plt.plot(sky_objects["D_COMOVING"], my_comov_GEO, ".", label="GEO")
+    plt.plot([min(sky_objects["D_COMOVING"]), max(sky_objects["D_COMOVING"])], [min(sky_objects["D_COMOVING"]), max(sky_objects["D_COMOVING"])], "-", label="straight line")
+    plt.legend()
+    plt.show()
+    savemyplot(fig, "d_comov_test")
+    plt.close()
+
 
 ######################################
 ####    Translates coordinates    ####
