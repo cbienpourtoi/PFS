@@ -44,7 +44,7 @@ from time import gmtime, strftime
 from mpl_toolkits.basemap import Basemap
 import matplotlib.animation as animation
 from numpy.lib.recfunctions import append_fields
-
+import re
 
 table_write_format = 'fixed_width'
 table_read_format = 'ascii.'+table_write_format
@@ -123,10 +123,14 @@ def main():
     ################################
     # Works only if beam is circular AND centered on (0,0) !
     # Usefull for taking care of border effects
-    radius_beam = 1. #deg
-    Xcenter, Ycenter = 0., 0.
-    sky_objects = distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor)
-    ascii.write(sky_objects, plot_directory+'current_selection_with_borders.txt', format=table_write_format)
+    compute_distances_border = False
+    if compute_distances_border:
+        radius_beam = 1. #deg
+        Xcenter, Ycenter = 0., 0.
+        sky_objects = distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor)
+        ascii.write(sky_objects, plot_directory+'current_selection_with_borders.txt', format=table_write_format)
+    else:
+        sky_objects = Table.read(plot_directory+'current_selection_with_borders.txt', format=table_read_format)
 
     #simple_sky_plot(sky_objects)
 
@@ -134,11 +138,20 @@ def main():
     #  Densities and Nearby   ####
     # Neighbours computation: ####
     ##############################
-    compute_densities_and_NN = True
+    compute_densities_and_NN = False
     if compute_densities_and_NN:
         sky_objects = compute_densities(sky_objects, hfactor)
     else:
         sky_objects = Table.read(plot_directory+'selection_with_densities.txt', format=table_read_format)
+
+
+    ########################################
+    ####     Looks for correlations     ####
+    #### density, NN, central halo mass ####
+    ########################################
+    checks_correlations(sky_objects, hfactor)
+
+
 
 
 
@@ -386,7 +399,7 @@ def creates_tables():
 
     # Make a table of the redshifts, selection filters and limit magnitude associated (limit mag always on the redder)
     z_bins = [2., 3., 4., 5., 6., 7.]
-    mag_limit = [24., 24.3, 24.5, 24.9, 24.9, 25.3]
+    mag_limit = [24.0, 24.4, 24.6, 24.7, 24.8, 25.2]
 
     selec_filter_1 = ['', 'SDSS_U', 'SDSS_G', 'SDSS_R', 'SDSS_I', 'Z']
     selec_filter_2 = ['', 'SDSS_G', 'SDSS_R', 'SDSS_I', 'SDSS_Z', 'Y']
@@ -1247,6 +1260,7 @@ def selec_3colors_CFHTLS():
 ####   Compute the densities    ####
 #### and the nearest neighbours ####
 ####################################
+# 15 minutes to run to N=9
 def compute_densities(sky_objects, hfactor):
 
     ### DENSITIES IN SPHERES - initialization
@@ -1264,7 +1278,7 @@ def compute_densities(sky_objects, hfactor):
 
 
     ### NEAREST NEIGHBOURS - initialization
-    N_nearest = [3, 5]
+    N_nearest = [3, 5, 7, 9]
     N_nearest_names = []
     for N_near in N_nearest:
         N_nearest_names.append("Dist_nearest_"+str(N_near)+"_in_Mpc/h")
@@ -1292,7 +1306,7 @@ def compute_densities(sky_objects, hfactor):
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
         # Loops over all particles, from nearby to far.
-        # about 4 minutes to run.
+        # about 4 minutes to run
         for galaxy in sky_objects:
 
             # Selects the close particles in D_COMOVING (z)
@@ -1563,6 +1577,142 @@ def check_diff_RADec_XY(sky_objects):
     plt.show()
     savemyplot(fig, "RADec")
     plt.close()
+
+
+########################################
+####     Looks for correlations     ####
+#### density, NN, central halo mass ####
+########################################
+def checks_correlations(sky_objects, hfactor):
+
+    dz=0.1
+    for redshift in np.array([1.6, 2, 3, 4, 5, 6, 7]):
+
+        ###############
+        ### DENSITIES
+        ###
+
+        # BORDER CONDITIONS FOR DENSITIES:
+        # We can afford to loose 20% now. Correct it later.
+        acceptable_ratio_outer = 0.2
+        # Positions of the objects to keep:
+        objects_inside_density = np.where(sky_objects["distance_to_border_Mpch"] >= (10.*hfactor))[0]
+        N_outer = len(sky_objects) - len(objects_inside_density)
+        ratio_outers = float(N_outer)/float(len(sky_objects))
+        if ratio_outers<acceptable_ratio_outer:
+            print "There are "+str(N_outer)+" objects in the border region (with wrong density estimation), which correspond to "+str(ratio_outers*100.)+"%"
+        else:
+            print "There might be too many outers ("+str(ratio_outers*100.)+"%), so I prefer to stop now. If you need to proceed, change acceptable_ratio_outer value"
+            sys.exit()
+
+        subsample_in = sky_objects[objects_inside_density]
+
+        zsample = np.where(np.abs(subsample_in["Z_APP"]-redshift)<dz)
+
+        xcolumn = "DensityR10Mpc"
+        #xcolumn = "Dist_nearest_9_in_Mpc/h"
+
+        densities_plot = subsample_in[zsample][xcolumn]
+        Y_axis_plot = subsample_in[zsample]["CENTRALMVIR"]
+        # Computes mean values:
+        Y_axis_means = []
+        Y_axis_stds = []
+        density_values = np.arange(1,max(densities_plot)+1)
+        for density_value in density_values:
+            Y_axis_plot_bin = Y_axis_plot[np.where(np.abs(densities_plot-density_value)<=0.5)[0]]
+            Y_axis_means.append(np.mean(Y_axis_plot_bin))
+            Y_axis_stds.append(np.std(Y_axis_plot_bin))
+        Y_axis_means = np.array(Y_axis_means)
+        Y_axis_stds = np.array(Y_axis_stds)
+
+        # Delete the NaN values in the means:
+        not_NaN = np.isnan(Y_axis_means) == False
+        density_values = density_values[not_NaN]
+        Y_axis_means = Y_axis_means[not_NaN]
+        Y_axis_stds = Y_axis_stds[not_NaN]
+
+        # Plot
+        fig = plt.figure()
+        plt.title("Density - Central Mvir Correlation @ z="+str(redshift))
+        plt.xlabel(xcolumn)
+        plt.ylabel("CENTRALMVIR")
+        plt.plot(densities_plot, Y_axis_plot, ".", ms=3)
+        #plt.plot(density_values, Y_axis_means, "-")
+        plt.errorbar(density_values, Y_axis_means, yerr=Y_axis_stds/2., label="mean", fmt='o', capsize=7, elinewidth=5)
+        #plt.plot(density_values, Y_axis_means+Y_axis_stds, "-")
+        plt.yscale('log')
+        plt.legend()
+        #plt.show()
+        savemyplot(fig, "Correlation_Density_CentralMvir_z"+str(redshift))
+        plt.close()
+
+
+        ####################
+        ### N NEIGHBOURS
+        ###
+
+        # BORDER CONDITIONS FOR NEAREST NEIGHBOURS:
+        # first, find the values of the nearest neighbours (3, 5, ...) from the column names
+        NN_values = []
+        for col in sky_objects.columns:
+            match = re.search("(Dist_nearest_.*)", col)
+            if match:
+                NN_values.append(int(match.group(1)[13]))
+        NN_max = max(NN_values)
+
+
+        # Get a list of the positions of the objects to keep for each NN value.
+        objects_inside_NN_lists = []
+        for NN_value in NN_values:
+            # Positions of the objects to keep:
+            objects_inside_NN = np.where(sky_objects["Dist_nearest_"+str(NN_value)+"_in_Mpc/h"] <= sky_objects["distance_to_border_Mpch"])[0]
+            objects_inside_NN_lists.append(objects_inside_NN)
+            NN_toofar = len(sky_objects) - len(objects_inside_NN)
+            print "There are "+str(NN_toofar)+ " objects with "+str(NN_value)+"th nearest neighbours too close to the border ("+str(float(NN_toofar)/float(len(sky_objects))*100.)+"%)"
+
+        # Works on each value of NN (3, 5, ...)
+        for i in np.arange(len(NN_values)):
+            subsample_in = sky_objects[objects_inside_NN_lists[i]]
+
+            zsample = np.where(np.abs(subsample_in["Z_APP"]-redshift)<dz)
+
+            xcolumn = "Dist_nearest_"+str(NN_values[i])+"_in_Mpc/h"
+
+            NN_plot = subsample_in[zsample][xcolumn]
+            Y_axis_plot = subsample_in[zsample]["CENTRALMVIR"]
+
+            # Computes mean values:
+            Y_axis_means = []
+            Y_axis_stds = []
+            delta = (max(NN_plot)*1.05)/25.
+            NN_values_bins = np.arange(0, max(NN_plot)*1.05, delta)
+            for NN_value_bin in NN_values_bins:
+                Y_axis_plot_bin = Y_axis_plot[np.where(np.abs(NN_plot-NN_value_bin)<=delta/2.)[0]]
+                Y_axis_means.append(np.mean(Y_axis_plot_bin))
+                Y_axis_stds.append(np.std(Y_axis_plot_bin))
+            Y_axis_means = np.array(Y_axis_means)
+            Y_axis_stds = np.array(Y_axis_stds)
+
+            # Delete the NaN values in the means:
+            not_NaN = np.isnan(Y_axis_means) == False
+            NN_values_bins = NN_values_bins[not_NaN]
+            Y_axis_means = Y_axis_means[not_NaN]
+            Y_axis_stds = Y_axis_stds[not_NaN]
+
+            # Plot
+            fig = plt.figure()
+            plt.title("NNeighbour - Central Mvir Correlation @ z="+str(redshift))
+            plt.xlabel(xcolumn)
+            plt.ylabel("CENTRALMVIR")
+            plt.plot(subsample_in[zsample][xcolumn], subsample_in[zsample]["CENTRALMVIR"], "x")
+            plt.errorbar(NN_values_bins, Y_axis_means, yerr=Y_axis_stds/2., label="mean", fmt='o', capsize=7, elinewidth=5)
+            plt.yscale('log')
+            #plt.xscale('log')
+            plt.legend()
+            #plt.show()
+            savemyplot(fig, "Correlation_NNeighbour_"+str(NN_values[i])+"_CentralMvir_z"+str(redshift))
+            plt.close()
+
 
 
 if __name__ == '__main__':
