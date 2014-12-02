@@ -49,10 +49,6 @@ import re
 table_write_format = 'fixed_width'
 table_read_format = 'ascii.'+table_write_format
 
-# Set as True if you dont want to re-read the initial catalog, but only take the last saved selection (gaussian, usually)
-read_selection_only = True
-
-
 def savemyplot(fig, name):
     fig.savefig(plot_directory + name + plot_extension)
     return
@@ -97,17 +93,20 @@ def main():
     ##########################
     #### Selects galaxies ####
     ##########################
-    if read_selection_only is False:
+    # Set as False if you dont want to re-read the initial catalog, but only take the last saved selection (gaussian, usually)
+    compute_selection = True
+    if compute_selection:
 
         # Selects by Number of particles
         # Takes 10 secs
         NPmin = 50 #Number of particles to consider for an object (20 is the selection from the catalog itself)
-        subsample_NP(NPmin)
+        #subsample_NP(NPmin)
 
         #test_z2()
 
         # Choose here between 3 selection methods:
-        sky_objects = selec_gauss()
+        #sky_objects = selec_gauss()
+        sky_objects = selec_Arnouts()
         #sky_objects = selec_3colors()
         #sky_objects = selec_simple()
 
@@ -116,6 +115,8 @@ def main():
     else:
        sky_objects = Table.read(plot_directory+'current_selection.txt', format=table_read_format)
 
+
+    sys.exit()
 
     ################################
     ####   Compute distances to ####
@@ -820,6 +821,51 @@ def selec_gauss():
 
     return selection
 
+
+#############################
+#### Arnouts selection   ####
+#### Mail R 28-11-2014   ####
+#############################
+def selec_Arnouts():
+    """
+    1) color selection for z>0.6 (COLSEL1):
+    (sdss_g-sdss_r)<(-0.35+0.857*(sdss_r-sdss_z+0.4)) || (sdss_r-sdss_z)>1.7
+
+    2) color selection for z>1.3 (COLSEL2):
+    (sdss_g-sdss_z)<(-0.3+1.61*(sdss_z-J)) || (sdss_z-J)>1.6 || (sdss_g-sdss_z)<0.5
+
+    3) full redshift sample to J<23.3 :
+    COLSEL1 &&  J>10 && J<23.3
+
+    4) high redshift sample to J<23.3 :
+    COLSEL1 && ( (Y>10&&Y<22.3) || (Y>22.3 && J<23.3 && COLSEL2) )
+    """
+
+
+    # COLSEL1
+    COLSEL1a = (allcone["SDSS_G"] - allcone["SDSS_R"]) < (-0.35 + 0.857 * (allcone["SDSS_R"] - allcone["SDSS_Z"] + 0.4))
+    COLSEL1b = (allcone["SDSS_R"] - allcone["SDSS_Z"]) > 1.7
+    COLSEL1 = COLSEL1a | COLSEL1b
+    print COLSEL1
+
+    print allcone[COLSEL1b]['Z_APP']
+
+    fig = plt.figure()
+    plt.title("COLSEL1a")
+    plt.xlabel("NP")
+    plt.ylabel("z")
+    #plt.yscale('log')
+    #plt.hist(allcone[COLSEL1a]['Z_APP'], bins=1000, range=(0, 1000))
+    #plt.hist([allcone[COLSEL1a]['Z_APP'], allcone[COLSEL1b]['Z_APP'], allcone['Z_APP']], bins=np.arange(100)/10., label=["COLSEL1a", "COLSEL1b", "All"])
+    plt.hist([allcone[COLSEL1]['Z_APP'], allcone['Z_APP']], bins=np.arange(100)/10., label=["COLSEL1", "All"], stacked=True)
+    plt.legend()
+    #plt.hist([sky_objects['DensityR1Mpc'], sky_objects['DensityR2p5Mpc'], sky_objects['DensityR5Mpc'], sky_objects['DensityR10Mpc']], bins=np.arange(30), label=['1Mpc', '2.5Mpc', '5Mpc', '10Mpc'])
+
+    plt.show()
+    #savemyplot(fig, "NP_ZOOM_filter3_le_" + str(selection_properties['LimitMag'][i]))
+    plt.close()
+
+
 #############################
 #### Dropouts selection  ####
 #############################
@@ -831,9 +877,7 @@ def selec_3colors():
 
     global conelist, cone, list_GALID, allcone_selected_3colors, selection
 
-    print strftime("%Y-%m-%d %H:%M:%S", gmtime())
     allcone_selected_3colors = np.zeros(len(allcone), dtype=int)
-    print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
     number_duplicates = 0
 
