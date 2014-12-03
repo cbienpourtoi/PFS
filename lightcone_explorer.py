@@ -94,19 +94,19 @@ def main():
     #### Selects galaxies ####
     ##########################
     # Set as False if you dont want to re-read the initial catalog, but only take the last saved selection (gaussian, usually)
-    compute_selection = True
+    compute_selection = False
     if compute_selection:
 
         # Selects by Number of particles
         # Takes 10 secs
         NPmin = 50 #Number of particles to consider for an object (20 is the selection from the catalog itself)
-        #subsample_NP(NPmin)
+        subsample_NP(NPmin)
 
         #test_z2()
 
         # Choose here between 3 selection methods:
-        #sky_objects = selec_gauss()
-        sky_objects = selec_Arnouts()
+        sky_objects = selec_gauss()
+        #sky_objects = selec_Arnouts()
         #sky_objects = selec_3colors()
         #sky_objects = selec_simple()
 
@@ -115,8 +115,6 @@ def main():
     else:
        sky_objects = Table.read(plot_directory+'current_selection.txt', format=table_read_format)
 
-
-    sys.exit()
 
     ################################
     ####   Compute distances to ####
@@ -141,16 +139,16 @@ def main():
     ##############################
     compute_densities_and_NN = False
     if compute_densities_and_NN:
-        sky_objects = compute_densities(sky_objects, hfactor)
+        sky_objects, densities_table = compute_densities(sky_objects, hfactor)
     else:
         sky_objects = Table.read(plot_directory+'selection_with_densities.txt', format=table_read_format)
-
+        densities_table = Table.read(plot_directory+'radii_densities_table.txt', format=table_read_format)
 
     ########################################
     ####     Looks for correlations     ####
     #### density, NN, central halo mass ####
     ########################################
-    checks_correlations(sky_objects, hfactor)
+    checks_correlations(sky_objects, densities_table, hfactor)
 
 
 
@@ -1314,6 +1312,7 @@ def compute_densities(sky_objects, hfactor):
     search_radii_names = ["DensityR0p5Mpc", "DensityR1Mpc", "DensityR2p5Mpc", "DensityR5Mpc", "DensityR10Mpc"]
     densities_table = Table([search_radii, search_radii_names], names=('search_radii', 'column_names'), meta={'name': 'table of the densities'})
     densities_table.sort('search_radii')
+    ascii.write(densities_table, plot_directory+'radii_densities_table.txt', format=table_write_format)
     max_radius = max(densities_table['search_radii'])
 
     # Adds density columns in the table of results
@@ -1443,7 +1442,7 @@ def compute_densities(sky_objects, hfactor):
 
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
-    return sky_objects
+    return sky_objects, densities_table
 
 ####################################
 ####     Slices a lightcone     ####
@@ -1627,68 +1626,101 @@ def check_diff_RADec_XY(sky_objects):
 ####     Looks for correlations     ####
 #### density, NN, central halo mass ####
 ########################################
-def checks_correlations(sky_objects, hfactor):
+def checks_correlations(sky_objects, densities_table, hfactor):
 
     dz=0.1
-    for redshift in np.array([1.6, 2, 3, 4, 5, 6, 7]):
+    #for redshift in np.array([1.6, 2, 3, 4, 5, 6, 7]):
+    minz = min(sky_objects["Z_APP"])
+    maxz = max(sky_objects["Z_APP"])
+    maxt = mycosmo.lookback_time(minz)
+    mint = mycosmo.lookback_time(maxz)
+    nbins = 6.
+    difft = (mint - maxt)/nbins
+
+    print "Time difference between each plot: "+str(difft)
+
+    print np.arange(maxt.value, mint.value, difft.value)
+
+    for cosmotime in np.arange(maxt.value, mint.value, difft.value)*difft.unit:
+
+        tbinmin = cosmotime
+        tbinmax = cosmotime+difft
+        zbinmin = z_at_value(mycosmo.age, mycosmo.age(0)-cosmotime)
+        zbinmax = z_at_value(mycosmo.age, mycosmo.age(0)-(cosmotime+difft))
+        zbinmean = (zbinmax + zbinmin)/2.
+        zbindelta = (zbinmax - zbinmin)/2.
+
+        print "From t="+str(tbinmin)+" to "+str(tbinmax)
+        print "From z="+str(zbinmin)+" to "+str(zbinmax)
+
 
         ###############
         ### DENSITIES
         ###
 
-        # BORDER CONDITIONS FOR DENSITIES:
-        # We can afford to loose 20% now. Correct it later.
-        acceptable_ratio_outer = 0.2
-        # Positions of the objects to keep:
-        objects_inside_density = np.where(sky_objects["distance_to_border_Mpch"] >= (10.*hfactor))[0]
-        N_outer = len(sky_objects) - len(objects_inside_density)
-        ratio_outers = float(N_outer)/float(len(sky_objects))
-        if ratio_outers<acceptable_ratio_outer:
-            print "There are "+str(N_outer)+" objects in the border region (with wrong density estimation), which correspond to "+str(ratio_outers*100.)+"%"
-        else:
-            print "There might be too many outers ("+str(ratio_outers*100.)+"%), so I prefer to stop now. If you need to proceed, change acceptable_ratio_outer value"
-            sys.exit()
+        for density_radius in densities_table:
 
-        subsample_in = sky_objects[objects_inside_density]
+            # BORDER CONDITIONS FOR DENSITIES:
+            # We can afford to loose 20% now. Correct it later.
+            acceptable_ratio_outer = 0.2
+            # Positions of the objects to keep:
+            objects_inside_density = np.where(sky_objects["distance_to_border_Mpch"] >= (density_radius["search_radii"]))[0]
+            N_outer = len(sky_objects) - len(objects_inside_density)
+            ratio_outers = float(N_outer)/float(len(sky_objects))
+            if ratio_outers<acceptable_ratio_outer:
+                print "There are "+str(N_outer)+" objects in the border region for "+str(density_radius["search_radii"]/hfactor)+"Mpc (with wrong density estimation), which correspond to "+str(ratio_outers*100.)+"%"
+            else:
+                print "There might be too many outers ("+str(ratio_outers*100.)+"%), so I prefer to stop now. If you need to proceed, change acceptable_ratio_outer value"
+                sys.exit()
 
-        zsample = np.where(np.abs(subsample_in["Z_APP"]-redshift)<dz)
+            subsample_in = sky_objects[objects_inside_density]
 
-        xcolumn = "DensityR10Mpc"
-        #xcolumn = "Dist_nearest_9_in_Mpc/h"
+            zsample = np.where(np.abs(subsample_in["Z_APP"]-zbinmean) < zbindelta)
 
-        densities_plot = subsample_in[zsample][xcolumn]
-        Y_axis_plot = subsample_in[zsample]["CENTRALMVIR"]
-        # Computes mean values:
-        Y_axis_means = []
-        Y_axis_stds = []
-        density_values = np.arange(1,max(densities_plot)+1)
-        for density_value in density_values:
-            Y_axis_plot_bin = Y_axis_plot[np.where(np.abs(densities_plot-density_value)<=0.5)[0]]
-            Y_axis_means.append(np.mean(Y_axis_plot_bin))
-            Y_axis_stds.append(np.std(Y_axis_plot_bin))
-        Y_axis_means = np.array(Y_axis_means)
-        Y_axis_stds = np.array(Y_axis_stds)
+            xcolumn = density_radius["column_names"]
 
-        # Delete the NaN values in the means:
-        not_NaN = np.isnan(Y_axis_means) == False
-        density_values = density_values[not_NaN]
-        Y_axis_means = Y_axis_means[not_NaN]
-        Y_axis_stds = Y_axis_stds[not_NaN]
+            densities_plot = subsample_in[zsample][xcolumn]
+            Y_axis_plot = subsample_in[zsample]["CENTRALMVIR"]
+            # Computes mean values:
+            Y_axis_means = []
+            Y_axis_stds = []
+            density_values = np.arange(1,max(densities_plot)+1)
+            for density_value in density_values:
+                Y_axis_plot_bin = Y_axis_plot[np.where(np.abs(densities_plot-density_value)<=0.5)[0]]
+                Y_axis_means.append(np.mean(Y_axis_plot_bin))
+                Y_axis_stds.append(np.std(Y_axis_plot_bin))
+            Y_axis_means = np.array(Y_axis_means)
+            Y_axis_stds = np.array(Y_axis_stds)
 
-        # Plot
-        fig = plt.figure()
-        plt.title("Density - Central Mvir Correlation @ z="+str(redshift))
-        plt.xlabel(xcolumn)
-        plt.ylabel("CENTRALMVIR")
-        plt.plot(densities_plot, Y_axis_plot, ".", ms=3)
-        #plt.plot(density_values, Y_axis_means, "-")
-        plt.errorbar(density_values, Y_axis_means, yerr=Y_axis_stds/2., label="mean", fmt='o', capsize=7, elinewidth=5)
-        #plt.plot(density_values, Y_axis_means+Y_axis_stds, "-")
-        plt.yscale('log')
-        plt.legend()
-        #plt.show()
-        savemyplot(fig, "Correlation_Density_CentralMvir_z"+str(redshift))
-        plt.close()
+            # Delete the NaN values in the means:
+            not_NaN = np.isnan(Y_axis_means) == False
+            density_values = density_values[not_NaN]
+            Y_axis_means = Y_axis_means[not_NaN]
+            Y_axis_stds = Y_axis_stds[not_NaN]
+
+            #fig = plt.figure()
+            #plt.hist((Y_axis_plot[np.where(densities_plot == 1)[0]]), bins=100)
+            #plt.show()
+            #plt.close()
+
+
+            # Plot
+            fig = plt.figure()
+            plt.title("Density - Central Mvir Correlation \n between t="+str(tbinmin)+" and "+str(tbinmax))
+            plt.xlabel(xcolumn)
+            plt.ylabel("CENTRALMVIR")
+            plt.plot(densities_plot, Y_axis_plot, ".", ms=3)
+            #plt.plot(density_values, Y_axis_means, "-")
+            plt.errorbar(density_values, Y_axis_means, yerr=Y_axis_stds/2., label="mean", fmt='-o', capsize=7, elinewidth=5)
+            #plt.xlim([min(density_values)-1, max(density_values)+1])
+            plt.xlim([0, 25])
+            plt.ylim([10.**10., 10.**14.])
+            #plt.plot(density_values, Y_axis_means+Y_axis_stds, "-")
+            plt.yscale('log')
+            plt.legend()
+            #plt.show()
+            savemyplot(fig, "Correlation_"+str(density_radius["column_names"])+"_CentralMvir_z"+str(zbinmean))
+            plt.close()
 
 
         ####################
@@ -1718,7 +1750,7 @@ def checks_correlations(sky_objects, hfactor):
         for i in np.arange(len(NN_values)):
             subsample_in = sky_objects[objects_inside_NN_lists[i]]
 
-            zsample = np.where(np.abs(subsample_in["Z_APP"]-redshift)<dz)
+            zsample = np.where(np.abs(subsample_in["Z_APP"]-zbinmean) < zbindelta)
 
             xcolumn = "Dist_nearest_"+str(NN_values[i])+"_in_Mpc/h"
 
@@ -1745,7 +1777,7 @@ def checks_correlations(sky_objects, hfactor):
 
             # Plot
             fig = plt.figure()
-            plt.title("NNeighbour - Central Mvir Correlation @ z="+str(redshift))
+            plt.title("NNeighbour - Central Mvir Correlation\n between t="+str(tbinmin)+" and "+str(tbinmax))
             plt.xlabel(xcolumn)
             plt.ylabel("CENTRALMVIR")
             plt.plot(subsample_in[zsample][xcolumn], subsample_in[zsample]["CENTRALMVIR"], "x")
@@ -1754,9 +1786,8 @@ def checks_correlations(sky_objects, hfactor):
             #plt.xscale('log')
             plt.legend()
             #plt.show()
-            savemyplot(fig, "Correlation_NNeighbour_"+str(NN_values[i])+"_CentralMvir_z"+str(redshift))
+            savemyplot(fig, "Correlation_NNeighbour_"+str(NN_values[i])+"_CentralMvir_z"+str(zbinmean))
             plt.close()
-
 
 
 if __name__ == '__main__':
