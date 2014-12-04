@@ -94,19 +94,19 @@ def main():
     #### Selects galaxies ####
     ##########################
     # Set as False if you dont want to re-read the initial catalog, but only take the last saved selection (gaussian, usually)
-    compute_selection = False
+    compute_selection = True
     if compute_selection:
 
         # Selects by Number of particles
         # Takes 10 secs
         NPmin = 50 #Number of particles to consider for an object (20 is the selection from the catalog itself)
-        subsample_NP(NPmin)
+        #subsample_NP(NPmin)
 
         #test_z2()
 
         # Choose here between 3 selection methods:
-        sky_objects = selec_gauss()
-        #sky_objects = selec_Arnouts()
+        #sky_objects = selec_gauss()
+        sky_objects = selec_Arnouts()
         #sky_objects = selec_3colors()
         #sky_objects = selec_simple()
 
@@ -839,29 +839,205 @@ def selec_Arnouts():
     COLSEL1 && ( (Y>10&&Y<22.3) || (Y>22.3 && J<23.3 && COLSEL2) )
     """
 
+    ###########
+    # COLSEL1 #
+    ###########
 
-    # COLSEL1
     COLSEL1a = (allcone["SDSS_G"] - allcone["SDSS_R"]) < (-0.35 + 0.857 * (allcone["SDSS_R"] - allcone["SDSS_Z"] + 0.4))
     COLSEL1b = (allcone["SDSS_R"] - allcone["SDSS_Z"]) > 1.7
     COLSEL1 = COLSEL1a | COLSEL1b
-    print COLSEL1
 
-    print allcone[COLSEL1b]['Z_APP']
+    do_plots_COLSEL1 = False
+    if do_plots_COLSEL1:
 
+        fig = plt.figure()
+        plt.title("COLSEL1 a and b")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], bins=np.arange(100)/10., label=["All sources"], alpha=0.3)
+        plt.hist(allcone[COLSEL1a]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL1a"], alpha=0.3)
+        plt.hist(allcone[COLSEL1b]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL1b"], alpha=0.3)
+        plt.plot([0.6, 0.6], [0, 300000], 'k', label="z=0.6")
+        plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        #plt.show()
+        savemyplot(fig, "COLSEL1a_and_b")
+        plt.close()
+
+
+        fig = plt.figure()
+        plt.title("COLSEL1")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], bins=np.arange(100)/10., label=["All sources"], alpha=0.3)
+        plt.hist(allcone[COLSEL1]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL1"], alpha=0.3)
+        plt.plot([0.6, 0.6], [0, 300000], 'k', label="z=0.6")
+        plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        #plt.show()
+        savemyplot(fig, "COLSEL1")
+        plt.close()
+
+
+        fig = plt.figure()
+        plt.title("COLSEL1 and COLSEL1a")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], bins=np.arange(100)/10., label=["All sources"], alpha=0.3)
+        plt.hist(allcone[COLSEL1]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL1"], alpha=0.3)
+        plt.hist(allcone[COLSEL1a]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL1a"], alpha=0.3)
+        plt.plot([0.6, 0.6], [0, 300000], 'k', label="z=0.6")
+        plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        #plt.show()
+        savemyplot(fig, "COLSEL1_and_a")
+        plt.close()
+
+
+    ###########
+    # COLSEL2 #
+    ###########
+
+
+    COLSEL2a = (allcone["SDSS_G"] - allcone["SDSS_Z"]) < (-0.3 + 1.61 * (allcone["SDSS_Z"] - allcone["J"]))
+    COLSEL2b = (allcone["SDSS_Z"] - allcone["J"]) > 1.6
+    COLSEL2c = (allcone["SDSS_G"] - allcone["SDSS_Z"]) < 0.5
+    COLSEL2 = COLSEL2a | COLSEL2b | COLSEL2c
+
+    do_plots_COLSEL2 = False
+    if do_plots_COLSEL2:
+
+        fig = plt.figure()
+        plt.title("COLSEL2")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], bins=np.arange(100)/10., label=["All sources"], alpha=0.5)
+        plt.hist(allcone[COLSEL2]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL2"], alpha=0.5)
+        plt.plot([1.3, 1.3], [0, 300000], 'k', label="z=1.3")
+        plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        #plt.show()
+        savemyplot(fig, "COLSEL2")
+        plt.close()
+
+        fig = plt.figure()
+        plt.title("COLSEL2")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], color='b', bins=np.arange(100)/10., label=["All sources"], alpha=0.5)
+        plt.hist(allcone[COLSEL2a]['Z_APP'], color='r', bins=np.arange(100)/10., label=["COLSEL2a"], alpha=0.5)
+        plt.hist(allcone[COLSEL2b]['Z_APP'], color='y', bins=np.arange(100)/10., label=["COLSEL2b"], alpha=0.5)
+        plt.hist(allcone[COLSEL2c]['Z_APP'], color='g', bins=np.arange(100)/10., label=["COLSEL2c"], alpha=0.5)
+        plt.plot([1.3, 1.3], [0, 300000], 'k', label="z=1.3")
+        plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        plt.show()
+        savemyplot(fig, "COLSEL2abc")
+        plt.close()
+
+
+    ##################################
+    #     COLSEL3:                   #
+    # full redshift sample to J<23.3 #
+    ##################################
+
+    COLSEL3a = allcone["J"] > 10. # Actually selects all objects
+    COLSEL3b = allcone["J"] < 23.3
+    COLSEL3 = COLSEL1 & COLSEL3a & COLSEL3b
+
+
+    do_plots_COLSEL3 = False
+    if do_plots_COLSEL3:
+
+        fig = plt.figure()
+        plt.title("COLSEL3")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], bins=np.arange(100)/10., label=["All sources"], alpha=0.5)
+        plt.hist(allcone[COLSEL3]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL3"], alpha=0.5)
+        #plt.hist(allcone[COLSEL3a]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL3a"], alpha=0.5)
+        #plt.hist(allcone[COLSEL3b]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL3b"], alpha=0.5)
+        plt.plot([0.6, 0.6], [0, 300000], 'k', label="z=0.6")
+        plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        plt.show()
+        savemyplot(fig, "COLSEL3")
+        plt.close()
+
+
+
+    ##################################
+    #     COLSEL4:                   #
+    # high redshift sample to J<23.3 #
+    ##################################
+
+
+    """COLSEL1 && ( (Y>10&&Y<22.3) || (Y>22.3 && J<23.3 && COLSEL2) )"""
+
+
+    COLSEL4a = (allcone["Y"] > 10.) & (allcone["Y"] < 22.3)
+    COLSEL4b = ((allcone["Y"] > 22.3) & (allcone["J"] < 23.3) & COLSEL2)
+    COLSEL4 = COLSEL1 & (COLSEL4a | COLSEL4b)
+
+
+    do_plots_COLSEL4 = False
+    if do_plots_COLSEL4:
+
+        fig = plt.figure()
+        plt.title("COLSEL4")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], bins=np.arange(100)/10., label=["All sources"], alpha=0.5)
+        plt.hist(allcone[COLSEL4]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL4"], alpha=0.5)
+        #plt.hist(allcone[COLSEL3a]['Z_APP'], bins=np.arange(100)/10., label=["COLSEL3at"], alpha=0.5)
+        plt.plot([1.3, 1.3], [0, 300000], 'k', label="z=1.3")
+        plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        plt.show()
+        savemyplot(fig, "COLSEL4")
+        plt.close()
+
+
+    do_plots_COLSEL_all = False
+    if do_plots_COLSEL_all:
+        fig = plt.figure()
+        plt.title("All selections")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], color='w', bins=np.arange(100)/10., label=["All sources"], alpha=1.)
+        plt.hist(allcone[COLSEL1]['Z_APP'], color='r', bins=np.arange(100)/10., label=["COLSEL1"], alpha=0.3)
+        plt.hist(allcone[COLSEL2]['Z_APP'], color='b', bins=np.arange(100)/10., label=["COLSEL2"], alpha=0.3)
+        plt.hist(allcone[COLSEL3]['Z_APP'], color='y', bins=np.arange(100)/10., label=["COLSEL3"], alpha=1.)
+        plt.hist(allcone[COLSEL4]['Z_APP'], color='g', bins=np.arange(100)/10., label=["COLSEL4"], alpha=0.5)
+        plt.plot([0.6, 0.6], [0, 300000], 'k', label="z=0.6")
+        plt.plot([1.3, 1.3], [0, 300000], 'k', label="z=1.3")
+        plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        plt.show()
+        savemyplot(fig, "COLSEL_all")
+        plt.close()
+
+
+    """
     fig = plt.figure()
-    plt.title("COLSEL1a")
-    plt.xlabel("NP")
-    plt.ylabel("z")
-    #plt.yscale('log')
-    #plt.hist(allcone[COLSEL1a]['Z_APP'], bins=1000, range=(0, 1000))
-    #plt.hist([allcone[COLSEL1a]['Z_APP'], allcone[COLSEL1b]['Z_APP'], allcone['Z_APP']], bins=np.arange(100)/10., label=["COLSEL1a", "COLSEL1b", "All"])
-    plt.hist([allcone[COLSEL1]['Z_APP'], allcone['Z_APP']], bins=np.arange(100)/10., label=["COLSEL1", "All"], stacked=True)
+    plt.title("All selections")
+    plt.xlabel("z")
+    plt.ylabel("#")
+    plt.hist(allcone['Z_APP'], color='w', bins=np.arange(100)/10., label=["All sources"], alpha=1.)
+    plt.hist(allcone[np.where(allcone["SDSS_Z"]<25.5)[0]]['Z_APP'], color='b', bins=np.arange(100)/10., label=["SDSS_Z>25.5"], alpha=0.5)
+    plt.hist(allcone[np.where(allcone["SDSS_R"]<25.5)[0]]['Z_APP'], color='g', bins=np.arange(100)/10., label=["SDSS_R>25.5"], alpha=0.5)
+    plt.hist(allcone[np.where(allcone["SDSS_G"]<25.5)[0]]['Z_APP'], color='r', bins=np.arange(100)/10., label=["SDSS_G>25.5"], alpha=0.5)
+    plt.plot([0.6, 0.6], [0, 300000], 'k', label="z=0.6")
+    plt.plot([1.3, 1.3], [0, 300000], 'k', label="z=1.3")
+    plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
     plt.legend()
-    #plt.hist([sky_objects['DensityR1Mpc'], sky_objects['DensityR2p5Mpc'], sky_objects['DensityR5Mpc'], sky_objects['DensityR10Mpc']], bins=np.arange(30), label=['1Mpc', '2.5Mpc', '5Mpc', '10Mpc'])
-
     plt.show()
-    #savemyplot(fig, "NP_ZOOM_filter3_le_" + str(selection_properties['LimitMag'][i]))
+    savemyplot(fig, "COLSEL_test")
     plt.close()
+    """
+
+
+    sys.exit()
 
 
 #############################
