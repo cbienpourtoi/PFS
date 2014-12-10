@@ -17,12 +17,12 @@ Patch NP that appears to be negative sometimes when reading the fits files. Pass
 """
 
 import numpy as np
-import scipy
+#import scipy
 # import pyfits
 import sys
 import os
-import glob
-import csv
+#import glob
+#import csv
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from astropy.io import fits
@@ -32,7 +32,7 @@ from astropy.table import Table, vstack, Column
 # from astropy.cosmology import comoving_distance # depreciated since astropy 0.4
 from astropy.cosmology import Planck13 as cosmo
 from astropy import cosmology
-from astropy.cosmology import parameters
+#from astropy.cosmology import parameters
 import astropy.units as u
 from astropy.cosmology import z_at_value
 # from string import upper,lower
@@ -43,11 +43,33 @@ import math
 from time import gmtime, strftime
 from mpl_toolkits.basemap import Basemap
 import matplotlib.animation as animation
-from numpy.lib.recfunctions import append_fields
+#from numpy.lib.recfunctions import append_fields
 import re
+import seaborn as sns
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4, A3, cm, landscape, portrait
+#from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Paragraph, TableStyle, Image
+from reportlab.platypus import Table as rTable #Else it conflicts with Astropy.Table
+#from reportlab.lib.enums import TA_LEFT, TA_CENTER
+from reportlab.lib import colors, utils
+#from reportlab.lib.units import inch
+
 
 table_write_format = 'fixed_width'
 table_read_format = 'ascii.'+table_write_format
+
+#type_of_selection = "gaussian"
+#type_of_selection = "Jonly"
+#type_of_selection = "COLSEL1"
+#type_of_selection = "COLSEL2"
+#type_of_selection = "COLSEL3"
+type_of_selection = "COLSEL4"
+#type_of_selection = "dropout"
+#type_of_selection = "simple"
+
+
 
 def savemyplot(fig, name):
     fig.savefig(plot_directory + name + plot_extension)
@@ -63,6 +85,10 @@ def gauss(x, *p):
 ####      Main      #####
 #########################
 def main():
+
+    print "launching"
+    print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
 
     global plot_extension, mycosmo
     plot_extension = ".png"
@@ -94,26 +120,40 @@ def main():
     #### Selects galaxies ####
     ##########################
     # Set as False if you dont want to re-read the initial catalog, but only take the last saved selection (gaussian, usually)
-    compute_selection = True
+    compute_selection = False
     if compute_selection:
 
-        # Selects by Number of particles
-        # Takes 10 secs
         NPmin = 50 #Number of particles to consider for an object (20 is the selection from the catalog itself)
-        #subsample_NP(NPmin)
 
         #test_z2()
 
         # Choose here between 3 selection methods:
-        #sky_objects = selec_gauss()
-        sky_objects = selec_Arnouts()
-        #sky_objects = selec_3colors()
-        #sky_objects = selec_simple()
+        if type_of_selection is "gaussian":
+            subsample_NP(NPmin)
+            sky_objects = selec_gauss()
+        if type_of_selection is "COLSEL1":
+            sky_objects = selec_Arnouts("COLSEL1")
+        if type_of_selection is "COLSEL2":
+            sky_objects = selec_Arnouts("COLSEL2")
+        if type_of_selection is "COLSEL3":
+            sky_objects = selec_Arnouts("COLSEL3")
+        if type_of_selection is "COLSEL4":
+            sky_objects = selec_Arnouts("COLSEL4")
+        if type_of_selection is "Jonly":
+            sky_objects = selec_Arnouts("Jonly")
+        if type_of_selection is "dropout":
+            subsample_NP(NPmin)
+            sky_objects = selec_3colors()
+        if type_of_selection is "simple":
+            subsample_NP(NPmin)
+            sky_objects = selec_simple()
 
-        ascii.write(sky_objects, plot_directory+'current_selection.txt', format=table_write_format)
+        sky_objects = Table(sky_objects)
+
+        ascii.write(sky_objects, plot_directory+type_of_selection+'_selection.txt', format=table_write_format)
 
     else:
-       sky_objects = Table.read(plot_directory+'current_selection.txt', format=table_read_format)
+       sky_objects = Table.read(plot_directory+type_of_selection+'_selection.txt', format=table_read_format)
 
 
     ################################
@@ -124,12 +164,13 @@ def main():
     # Usefull for taking care of border effects
     compute_distances_border = False
     if compute_distances_border:
+        print "Computing the distances to the borders"
         radius_beam = 1. #deg
         Xcenter, Ycenter = 0., 0.
         sky_objects = distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor)
-        ascii.write(sky_objects, plot_directory+'current_selection_with_borders.txt', format=table_write_format)
+        ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_borders.txt', format=table_write_format)
     else:
-        sky_objects = Table.read(plot_directory+'current_selection_with_borders.txt', format=table_read_format)
+        sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_borders.txt', format=table_read_format)
 
     #simple_sky_plot(sky_objects)
 
@@ -141,16 +182,20 @@ def main():
     if compute_densities_and_NN:
         sky_objects, densities_table = compute_densities(sky_objects, hfactor)
     else:
-        sky_objects = Table.read(plot_directory+'selection_with_densities.txt', format=table_read_format)
-        densities_table = Table.read(plot_directory+'radii_densities_table.txt', format=table_read_format)
+        sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_read_format)
+        densities_table = Table.read(plot_directory+type_of_selection+'_radii_densities_table.txt', format=table_read_format)
 
     ########################################
     ####     Looks for correlations     ####
     #### density, NN, central halo mass ####
     ########################################
-    checks_correlations(sky_objects, densities_table, hfactor)
+    compute_correlations = False
+    if compute_correlations:
+        checks_correlations(sky_objects, densities_table, hfactor)
 
+    plot_trends()
 
+    make_pdf()
 
 
 
@@ -175,6 +220,7 @@ def distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor):
     distance_to_border_deg = np.zeros(len(sky_objects))
     distance_to_border_Mpch = distance_to_border_deg
     dist_2_border_deg_column = Column(data=distance_to_border_deg, name="distance_to_border_deg")
+    #print dist_2_border_deg_column
     sky_objects.add_column(dist_2_border_deg_column)
     dist_2_border_Mpch_column = Column(data=distance_to_border_Mpch, name="distance_to_border_Mpch")
     sky_objects.add_column(dist_2_border_Mpch_column)
@@ -289,7 +335,7 @@ def open_lightcone(file_number):
     #conename = "P1_M05_Ks28.fits" # Second file given by R. Planck Cosmology. Contains unconsistent information. Outdated.
     #conename = "P1_M05_001_Sep12_ks27.fits"  # Third file given by R. Planck Cosmology. Outdated because missing some columns.
     conename = "planck1_m05_002_igm1_nov7.fits" # 4th file given by R. Planck Cosmology.
-    plot_directory = "./plots/"+conename[0:-5]+"/"
+    plot_directory = "./plots/"+conename[0:-5]+"/"+type_of_selection+"/"
     if not os.path.exists(plot_directory) : os.mkdir(plot_directory)
 
     hdulist = fits.open(conepath + conename)
@@ -799,7 +845,7 @@ def selec_gauss():
 
 
     print gaussian_selection
-    ascii.write(gaussian_selection, plot_directory+'gaussian_selection.txt', format=table_write_format)
+    ascii.write(gaussian_selection, plot_directory+type_of_selection+'_selection.txt', format=table_write_format)
 
     """
     fig = plt.figure()
@@ -824,7 +870,7 @@ def selec_gauss():
 #### Arnouts selection   ####
 #### Mail R 28-11-2014   ####
 #############################
-def selec_Arnouts():
+def selec_Arnouts(COLSEL_value):
     """
     1) color selection for z>0.6 (COLSEL1):
     (sdss_g-sdss_r)<(-0.35+0.857*(sdss_r-sdss_z+0.4)) || (sdss_r-sdss_z)>1.7
@@ -839,6 +885,33 @@ def selec_Arnouts():
     COLSEL1 && ( (Y>10&&Y<22.3) || (Y>22.3 && J<23.3 && COLSEL2) )
     """
 
+    print "Begining the selection from A"
+
+    ###############
+    # J>23.3 ONLY #
+    ###############
+
+    Jlimit = 23.3
+    Jonly = allcone["J"] < 23.3
+    print "Number of objects with J<" +str(Jlimit) +" : "+ str(len(np.where(Jonly == True)[0]))
+
+    do_plots_Jonly = False
+    if do_plots_Jonly:
+
+        fig = plt.figure()
+        plt.title("J only")
+        plt.xlabel("z")
+        plt.ylabel("#")
+        plt.hist(allcone['Z_APP'], bins=np.arange(100)/10., label=["All sources"], alpha=0.5, color='b')
+        plt.hist(allcone[Jonly]['Z_APP'], bins=np.arange(100)/10., label=["Jonly"], alpha=0.5, color='r')
+        #plt.plot([0.6, 0.6], [0, 300000], 'k', label="z=0.6")
+        #plt.plot([2, 2], [0, 300000], 'k', label="z=2.")
+        plt.legend()
+        #plt.show()
+        savemyplot(fig, "Jonly")
+        plt.close()
+
+
     ###########
     # COLSEL1 #
     ###########
@@ -846,6 +919,8 @@ def selec_Arnouts():
     COLSEL1a = (allcone["SDSS_G"] - allcone["SDSS_R"]) < (-0.35 + 0.857 * (allcone["SDSS_R"] - allcone["SDSS_Z"] + 0.4))
     COLSEL1b = (allcone["SDSS_R"] - allcone["SDSS_Z"]) > 1.7
     COLSEL1 = COLSEL1a | COLSEL1b
+
+    print "Number of objects in COLSEL1:" + str(len(np.where(COLSEL1 == True)[0]))
 
     do_plots_COLSEL1 = False
     if do_plots_COLSEL1:
@@ -893,6 +968,8 @@ def selec_Arnouts():
         savemyplot(fig, "COLSEL1_and_a")
         plt.close()
 
+    print "COLSEL1: done"
+
 
     ###########
     # COLSEL2 #
@@ -903,6 +980,8 @@ def selec_Arnouts():
     COLSEL2b = (allcone["SDSS_Z"] - allcone["J"]) > 1.6
     COLSEL2c = (allcone["SDSS_G"] - allcone["SDSS_Z"]) < 0.5
     COLSEL2 = COLSEL2a | COLSEL2b | COLSEL2c
+
+    print "Number of objects in COLSEL2:" + str(len(np.where(COLSEL2 == True)[0]))
 
     do_plots_COLSEL2 = False
     if do_plots_COLSEL2:
@@ -935,6 +1014,7 @@ def selec_Arnouts():
         savemyplot(fig, "COLSEL2abc")
         plt.close()
 
+    print "COLSEL2: done"
 
     ##################################
     #     COLSEL3:                   #
@@ -944,6 +1024,8 @@ def selec_Arnouts():
     COLSEL3a = allcone["J"] > 10. # Actually selects all objects
     COLSEL3b = allcone["J"] < 23.3
     COLSEL3 = COLSEL1 & COLSEL3a & COLSEL3b
+
+    print "Number of objects in COLSEL3:" + str(len(np.where(COLSEL3 == True)[0]))
 
 
     do_plots_COLSEL3 = False
@@ -964,6 +1046,7 @@ def selec_Arnouts():
         savemyplot(fig, "COLSEL3")
         plt.close()
 
+    print "COLSEL3: done"
 
 
     ##################################
@@ -978,6 +1061,8 @@ def selec_Arnouts():
     COLSEL4a = (allcone["Y"] > 10.) & (allcone["Y"] < 22.3)
     COLSEL4b = ((allcone["Y"] > 22.3) & (allcone["J"] < 23.3) & COLSEL2)
     COLSEL4 = COLSEL1 & (COLSEL4a | COLSEL4b)
+
+    print "Number of objects in COLSEL4:" + str(len(np.where(COLSEL4 == True)[0]))
 
 
     do_plots_COLSEL4 = False
@@ -997,8 +1082,9 @@ def selec_Arnouts():
         savemyplot(fig, "COLSEL4")
         plt.close()
 
+    print "COLSEL4: done"
 
-    do_plots_COLSEL_all = False
+    do_plots_COLSEL_all = True
     if do_plots_COLSEL_all:
         fig = plt.figure()
         plt.title("All selections")
@@ -1007,6 +1093,7 @@ def selec_Arnouts():
         plt.hist(allcone['Z_APP'], color='w', bins=np.arange(100)/10., label=["All sources"], alpha=1.)
         plt.hist(allcone[COLSEL1]['Z_APP'], color='r', bins=np.arange(100)/10., label=["COLSEL1"], alpha=0.3)
         plt.hist(allcone[COLSEL2]['Z_APP'], color='b', bins=np.arange(100)/10., label=["COLSEL2"], alpha=0.3)
+        plt.hist(allcone[Jonly]['Z_APP'], color='r', bins=np.arange(100)/10., label=["Jonly"], alpha=1.)
         plt.hist(allcone[COLSEL3]['Z_APP'], color='y', bins=np.arange(100)/10., label=["COLSEL3"], alpha=1.)
         plt.hist(allcone[COLSEL4]['Z_APP'], color='g', bins=np.arange(100)/10., label=["COLSEL4"], alpha=0.5)
         plt.plot([0.6, 0.6], [0, 300000], 'k', label="z=0.6")
@@ -1037,7 +1124,21 @@ def selec_Arnouts():
     """
 
 
-    sys.exit()
+    if COLSEL_value is "COLSEL1":
+        sky_objects = allcone[COLSEL1]
+    if COLSEL_value is "COLSEL2":
+        sky_objects = allcone[COLSEL2]
+    if COLSEL_value is "COLSEL3":
+        sky_objects = allcone[COLSEL3]
+    if COLSEL_value is "COLSEL4":
+        sky_objects = allcone[COLSEL4]
+    if COLSEL_value is "Jonly":
+        sky_objects = allcone[Jonly]
+
+    print "End of selection process"
+
+    return sky_objects
+
 
 
 #############################
@@ -1262,7 +1363,7 @@ def selec_3colors():
     plt.close()
 
     print color_selection
-    ascii.write(color_selection, plot_directory+'color_selection.txt', format=table_write_format)
+    ascii.write(color_selection, plot_directory+type_of_selection+'_selection.txt', format=table_write_format)
 
     if number_duplicates != 0:
         print "There was " + str(number_duplicates) + " duplicates in the selection. They have been taken care of."
@@ -1274,7 +1375,7 @@ def selec_3colors():
 
 
 #############################
-#### Gaussian Selection  ####
+####  Simple Selection   ####
 #############################
 def selec_simple():
     print "##################################################"
@@ -1481,6 +1582,8 @@ def selec_3colors_CFHTLS():
 # 15 minutes to run to N=9
 def compute_densities(sky_objects, hfactor):
 
+    print "Computing the densities"
+
     ### DENSITIES IN SPHERES - initialization
     # Makes a table of the radii on which computing the densities.
     # If you want to change teh radii, change search_radii and search_radii_names accordingly.
@@ -1488,7 +1591,7 @@ def compute_densities(sky_objects, hfactor):
     search_radii_names = ["DensityR0p5Mpc", "DensityR1Mpc", "DensityR2p5Mpc", "DensityR5Mpc", "DensityR10Mpc"]
     densities_table = Table([search_radii, search_radii_names], names=('search_radii', 'column_names'), meta={'name': 'table of the densities'})
     densities_table.sort('search_radii')
-    ascii.write(densities_table, plot_directory+'radii_densities_table.txt', format=table_write_format)
+    ascii.write(densities_table, plot_directory+type_of_selection+'_radii_densities_table.txt', format=table_write_format)
     max_radius = max(densities_table['search_radii'])
 
     # Adds density columns in the table of results
@@ -1569,10 +1672,10 @@ def compute_densities(sky_objects, hfactor):
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
 
-        ascii.write(sky_objects, plot_directory+'selection_with_densities.txt', format=table_write_format)
+        ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_write_format)
 
     else:
-        sky_objects = Table.read(plot_directory+'selection_with_densities.txt', format=table_read_format)
+        sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_read_format)
 
 
     print "I found "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[i]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
@@ -1614,7 +1717,7 @@ def compute_densities(sky_objects, hfactor):
 
         print "I now have "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[i]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
-        ascii.write(sky_objects, plot_directory+'selection_with_densities.txt', format=table_write_format)
+        ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_write_format)
 
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
@@ -1806,16 +1909,31 @@ def checks_correlations(sky_objects, densities_table, hfactor):
 
     dz=0.1
     #for redshift in np.array([1.6, 2, 3, 4, 5, 6, 7]):
-    minz = min(sky_objects["Z_APP"])
-    maxz = max(sky_objects["Z_APP"])
+
+    if (type_of_selection == "COLSEL4") | (type_of_selection == "COLSEL3"):
+        minz = 0.5
+    else:
+        minz = min(sky_objects["Z_APP"])
+
+    if (type_of_selection == "COLSEL4") | (type_of_selection == "COLSEL3"):
+        maxz = 2.5
+    else:
+        maxz = max(sky_objects["Z_APP"])
+
     maxt = mycosmo.lookback_time(minz)
     mint = mycosmo.lookback_time(maxz)
     nbins = 6.
     difft = (mint - maxt)/nbins
 
+    zlist = []
+
     print "Time difference between each plot: "+str(difft)
 
     print np.arange(maxt.value, mint.value, difft.value)
+
+    zbinmean_list = []
+    NN_values_list = []
+
 
     for cosmotime in np.arange(maxt.value, mint.value, difft.value)*difft.unit:
 
@@ -1829,6 +1947,8 @@ def checks_correlations(sky_objects, densities_table, hfactor):
         print "From t="+str(tbinmin)+" to "+str(tbinmax)
         print "From z="+str(zbinmin)+" to "+str(zbinmax)
 
+        zlist.append(str("%.1f" % zbinmean))
+
 
         ###############
         ### DENSITIES
@@ -1838,7 +1958,7 @@ def checks_correlations(sky_objects, densities_table, hfactor):
 
             # BORDER CONDITIONS FOR DENSITIES:
             # We can afford to loose 20% now. Correct it later.
-            acceptable_ratio_outer = 0.2
+            acceptable_ratio_outer = 0.4
             # Positions of the objects to keep:
             objects_inside_density = np.where(sky_objects["distance_to_border_Mpch"] >= (density_radius["search_radii"]))[0]
             N_outer = len(sky_objects) - len(objects_inside_density)
@@ -1853,18 +1973,44 @@ def checks_correlations(sky_objects, densities_table, hfactor):
 
             zsample = np.where(np.abs(subsample_in["Z_APP"]-zbinmean) < zbindelta)
 
+            print len(zsample[0])
+
             xcolumn = density_radius["column_names"]
 
             densities_plot = subsample_in[zsample][xcolumn]
-            Y_axis_plot = subsample_in[zsample]["CENTRALMVIR"]
+            Y_axis_plot = np.log10(subsample_in[zsample]["CENTRALMVIR"])
             # Computes mean values:
             Y_axis_means = []
             Y_axis_stds = []
-            density_values = np.arange(1,max(densities_plot)+1)
-            for density_value in density_values:
-                Y_axis_plot_bin = Y_axis_plot[np.where(np.abs(densities_plot-density_value)<=0.5)[0]]
+
+            Y_axis_m_buffer = []
+
+            #density_values = np.arange(1,max(densities_plot)+1)
+
+            density_values = []
+
+            density_value = 1
+            while density_value <= max(densities_plot):
+                delta_d = 0.5
+                bin_positions = np.where(np.abs(densities_plot-density_value) <= delta_d)[0]
+                while (len(bin_positions) < 20) & (density_value <= max(densities_plot)):
+                    density_value = density_value + 1
+                    #density_value =+ 1
+                    bin_positions = np.append(bin_positions, np.where(np.abs(densities_plot-density_value) <= delta_d)[0])
+
+                density_values.append(np.mean(densities_plot[bin_positions]))
+
+                Y_axis_plot_bin = Y_axis_plot[bin_positions]
                 Y_axis_means.append(np.mean(Y_axis_plot_bin))
-                Y_axis_stds.append(np.std(Y_axis_plot_bin))
+                if len(Y_axis_plot_bin) !=0:
+                    Y_axis_stds.append(np.std(Y_axis_plot_bin)*(1.+1./len(Y_axis_plot_bin)))
+                else:
+                    Y_axis_stds.append(0.)
+
+                density_value += 1
+
+
+            density_values = np.array(density_values)
             Y_axis_means = np.array(Y_axis_means)
             Y_axis_stds = np.array(Y_axis_stds)
 
@@ -1879,24 +2025,54 @@ def checks_correlations(sky_objects, densities_table, hfactor):
             #plt.show()
             #plt.close()
 
+            tabletitle = "Density - Central Mvir Correlation \n between t="+str("%.2f" % tbinmin.value)+str(tbinmin.unit)+" and "+str("%.2f" % tbinmax.value)+str(tbinmax.unit)
+            tableDensity = Table([density_values, Y_axis_means, Y_axis_stds], names=["Density", "log10CentralMVir", "log10CentralMVir_1sigma"], meta={'name': tabletitle})
+            name_data = "Correlation_"+str(density_radius["column_names"])+"_CentralMvir_z"+str("%.1f" % zbinmean)
+            ascii.write(tableDensity, output=plot_directory+name_data+".txt", format=table_write_format)
 
+
+            # Plot
+            fig = plt.figure()
+            plt.title(type_of_selection+" -- Density - Central Mvir Correlation \n between t="+str("%.2f" % tbinmin.value)+str(tbinmin.unit)+" and "+str("%.2f" % tbinmax.value)+str(tbinmax.unit))
+            plt.xlabel(xcolumn)
+            plt.ylabel("log10 CENTRALMVIR")
+            plt.plot(densities_plot, Y_axis_plot, ".", ms=3)
+            #plt.plot(density_values, Y_axis_means, "-")
+            plt.errorbar(density_values, Y_axis_means, yerr=Y_axis_stds/2., label="mean", fmt='-o', capsize=7, elinewidth=5)
+            #plt.xlim([min(density_values)-1, max(density_values)+1])
+            #plt.xlim([0,50])
+            #plt.ylim([10.**10., 10.**15.])
+            #plt.plot(density_values, Y_axis_means+Y_axis_stds, "-")
+            #plt.yscale('log')
+            plt.legend()
+            #plt.show()
+            savemyplot(fig, name_data)
+            plt.close()
+
+
+
+
+            """
             # Plot
             fig = plt.figure()
             plt.title("Density - Central Mvir Correlation \n between t="+str(tbinmin)+" and "+str(tbinmax))
             plt.xlabel(xcolumn)
             plt.ylabel("CENTRALMVIR")
-            plt.plot(densities_plot, Y_axis_plot, ".", ms=3)
+            plt.plot(densities_plot, np.log10(Y_axis_plot), ",", ms=3)
+            for dens in np.arange(1,max(densities_plot)+1):
+                sns.kdeplot(densities_plot, np.log10(Y_axis_plot), shade=True, clip=[(dens-0.5, dens+0.5), (9, 15)])
             #plt.plot(density_values, Y_axis_means, "-")
-            plt.errorbar(density_values, Y_axis_means, yerr=Y_axis_stds/2., label="mean", fmt='-o', capsize=7, elinewidth=5)
+            #plt.errorbar(density_values, Y_axis_means, yerr=Y_axis_stds/2., label="mean", fmt='-o', capsize=7, elinewidth=5)
             #plt.xlim([min(density_values)-1, max(density_values)+1])
-            plt.xlim([0, 25])
-            plt.ylim([10.**10., 10.**14.])
+            #plt.xlim([0,50])
+            #plt.ylim([10.**10., 10.**15.])
             #plt.plot(density_values, Y_axis_means+Y_axis_stds, "-")
-            plt.yscale('log')
+            #plt.yscale('log')
             plt.legend()
             #plt.show()
-            savemyplot(fig, "Correlation_"+str(density_radius["column_names"])+"_CentralMvir_z"+str(zbinmean))
+            savemyplot(fig, "Correlation_"+str(density_radius["column_names"])+"_CentralMvir_z"+str(zbinmean)+"_withStyle")
             plt.close()
+            """
 
 
         ####################
@@ -1928,20 +2104,41 @@ def checks_correlations(sky_objects, densities_table, hfactor):
 
             zsample = np.where(np.abs(subsample_in["Z_APP"]-zbinmean) < zbindelta)
 
+            print len(zsample[0])
+
             xcolumn = "Dist_nearest_"+str(NN_values[i])+"_in_Mpc/h"
 
-            NN_plot = subsample_in[zsample][xcolumn]
-            Y_axis_plot = subsample_in[zsample]["CENTRALMVIR"]
+            NN_plot = np.log10(subsample_in[zsample][xcolumn])
+            logCMvir = np.log10(subsample_in[zsample]["CENTRALMVIR"])
+            Y_axis_plot = logCMvir #subsample_in[zsample]["CENTRALMVIR"]
 
-            # Computes mean values:
+
+            # Computes mean values and errorbars:
             Y_axis_means = []
             Y_axis_stds = []
-            delta = (max(NN_plot)*1.05)/25.
-            NN_values_bins = np.arange(0, max(NN_plot)*1.05, delta)
+            Y_axis_var_of_var = []
+            delta = ((max(NN_plot)-min(NN_plot)))/25.
+            NN_values_bins = np.arange(min(NN_plot), max(NN_plot), delta)
             for NN_value_bin in NN_values_bins:
                 Y_axis_plot_bin = Y_axis_plot[np.where(np.abs(NN_plot-NN_value_bin)<=delta/2.)[0]]
-                Y_axis_means.append(np.mean(Y_axis_plot_bin))
-                Y_axis_stds.append(np.std(Y_axis_plot_bin))
+                Y_axis_means.append(np.mean(Y_axis_plot_bin)) # Mean
+                #Y_axis_stds.append(np.std(Y_axis_plot_bin)) # Standard deviation (1 sigma) = (scipy.stats.mstats.moment(Y_axis_plot_bin, moment=2))**(1./2.)
+                Y_axis_stds.append(np.std(Y_axis_plot_bin) + np.std(Y_axis_plot_bin)/len(Y_axis_plot_bin))
+
+                #lenNN = len(Y_axis_plot_bin)
+                #print "a", scipy.stats.mstats.moment(Y_axis_plot_bin, moment=4)
+                """
+                if lenNN != 0 :
+                    print "b", lenNN, scipy.stats.mstats.moment(Y_axis_plot_bin, moment=4), (lenNN - 1)**2. / lenNN**3. * scipy.stats.mstats.moment(Y_axis_plot_bin, moment=4) - (lenNN - 1) * (lenNN - 3) / lenNN**3. * scipy.stats.mstats.moment(Y_axis_plot_bin, moment=2)**2.
+                if lenNN != 0:
+                    Y_axis_var_of_var.append((lenNN - 1)**2. / lenNN**3. * scipy.stats.mstats.moment(Y_axis_plot_bin, moment=4) - (lenNN - 1) * (lenNN - 3) / lenNN**3. * scipy.stats.mstats.moment(Y_axis_plot_bin, moment=2)**2.)
+                else:
+                    Y_axis_var_of_var.append(np.nan)
+                """
+            #print "a", Y_axis_means
+            #print "b", Y_axis_stds
+            #print "c", Y_axis_var_of_var
+
             Y_axis_means = np.array(Y_axis_means)
             Y_axis_stds = np.array(Y_axis_stds)
 
@@ -1951,20 +2148,202 @@ def checks_correlations(sky_objects, densities_table, hfactor):
             Y_axis_means = Y_axis_means[not_NaN]
             Y_axis_stds = Y_axis_stds[not_NaN]
 
+            #histo, xedges, yedges = np.histogram2d(subsample_in[zsample][xcolumn], logCMvir, range=[[min(subsample_in[zsample][xcolumn]), max(subsample_in[zsample][xcolumn])], [min(logCMvir), max(logCMvir)]], bins=[20,20])
+
+            #Xcol = subsample_in[zsample][xcolumn]
+
+            tabletitle = "Nearest Neighbour (N="+str(NN_values[i])+") distance vs Central Mvir"
+            tableNN = Table([NN_values_bins, Y_axis_means, Y_axis_stds], names=["log10NNDistance", "log10CentralMVir", "log10CentralMVir_1sigma"], meta={'name': tabletitle})
+
+            name_data = "Correlation_NNeighbour_"+str(NN_values[i])+"_CentralMvir_z"+str("%.1f" % zbinmean)
+
+            ascii.write(tableNN, output=plot_directory+name_data+".txt", format=table_write_format)
+
+
+            fig = plt.figure()
+            plt.title(type_of_selection+" -- NNeighbour - Central Mvir Correlation\n between t="+str("%.2f" % tbinmin.value)+str(tbinmin.unit)+" and "+str("%.2f" % tbinmax.value)+str(tbinmax.unit))
+            #plt.xlim(0, 40)
+            plt.ylim(10, 14.8)
+            plt.xlim(-1.5, 1.6)
+            #ax = plt.gca()
+            #ax.set_ylim(10, 14.8)
+            #ax.set_xlim(-1.5, 1.6)
+            #ax = plt.gca()
+            sns.kdeplot(NN_plot, logCMvir, shade=True, clip=[(-1.5, 1.6), (10, 14.8)])
+            #sns.set_style("white")
+            plt.plot(NN_plot, logCMvir, "k,", alpha=0.25)
+            plt.errorbar(NN_values_bins, Y_axis_means, yerr=Y_axis_stds/2., color='r', label="mean", fmt='-o', capsize=7, elinewidth=2, alpha=.5)
+            plt.xlabel("log10 "+xcolumn)
+            plt.ylabel("log10 CENTRALMVIR")
+            plt.legend()
+            #plt.show()
+            savemyplot(fig, name_data)
+            plt.close()
+
+            """
             # Plot
             fig = plt.figure()
             plt.title("NNeighbour - Central Mvir Correlation\n between t="+str(tbinmin)+" and "+str(tbinmax))
             plt.xlabel(xcolumn)
-            plt.ylabel("CENTRALMVIR")
-            plt.plot(subsample_in[zsample][xcolumn], subsample_in[zsample]["CENTRALMVIR"], "x")
-            plt.errorbar(NN_values_bins, Y_axis_means, yerr=Y_axis_stds/2., label="mean", fmt='o', capsize=7, elinewidth=5)
-            plt.yscale('log')
+            plt.ylabel("log10 CENTRALMVIR")
+            #plt.yscale('log')
+            plt.hist2d(subsample_in[zsample][xcolumn], logCMvir, bins=[20,20], range=[[min(subsample_in[zsample][xcolumn]), max(subsample_in[zsample][xcolumn])], [min(logCMvir), max(logCMvir)]])
+            #plt.imshow(histo)
+            #plt.pcolormesh(xedges, yedges, histo)
+            plt.plot(subsample_in[zsample][xcolumn], logCMvir, "k.")
+            plt.axis = [0, 40, 9, 15]
+            #plt.xrange = [min(subsample_in[zsample][xcolumn]), max(subsample_in[zsample][xcolumn])]
+            #plt.yrange = [min(logCMvir), max(logCMvir)]
+            plt.errorbar(NN_values_bins, Y_axis_means, yerr=Y_axis_stds/2., color='w', label="mean", fmt='o', capsize=7, elinewidth=5)
             #plt.xscale('log')
             plt.legend()
             #plt.show()
             savemyplot(fig, "Correlation_NNeighbour_"+str(NN_values[i])+"_CentralMvir_z"+str(zbinmean))
             plt.close()
+            """
 
+    ztable = Table(data=[zlist], names=["meanz"])
+    ascii.write(ztable, plot_directory+"zlist.txt", format=table_write_format)
+
+def get_image(path, width=1*cm):
+    img = utils.ImageReader(path)
+    iw, ih = img.getSize()
+    aspect = ih / float(iw)
+    return Image(path, width=width, height=(width * aspect))
+
+
+def plot_trends():
+
+    #redshifts = ['0.1', '0.3', '0.5', '0.9', '1.5', '3.3']
+    ztable = Table.read(plot_directory+"zlist.txt", format=table_read_format)
+    redshifts = ztable["meanz"]
+
+    ########################
+    ###   Plots for NN   ###
+    ########################
+
+    NNs = ['3', '5', '7', '9']
+    #NNfiles = glob.glob(plot_directory+"Correlation_NNeighbour_5_CentralMvir_z*.txt")
+
+    for NN in NNs:
+        fig = plt.figure()
+        plt.title(type_of_selection+" -- NNeighbour - Central Mvir for NN="+NN)
+        plt.ylim(10, 14.8)
+        plt.xlim(-1.5, 1.6)
+        for z in redshifts:
+            z=str(z)
+            file = plot_directory+"Correlation_NNeighbour_"+NN+"_CentralMvir_z"+z+".txt"
+            NNtable = Table.read(file, format=table_read_format)
+            plt.errorbar(NNtable["log10NNDistance"], NNtable["log10CentralMVir"], yerr=NNtable["log10CentralMVir_1sigma"]*3./2., label="z="+str(z), fmt='-o', capsize=7, elinewidth=2, alpha=0.9)
+        plt.xlabel("log10 Distance NN [Mpc/h]")
+        plt.ylabel("log10 CENTRALMVIR")
+        plt.legend()
+        #plt.show()
+        savemyplot(fig, "NN"+NN+"_all")
+        plt.close()
+
+
+    for z in redshifts:
+        z=str(z)
+        fig = plt.figure()
+        plt.title(type_of_selection+" -- NNeighbour - Central Mvir for z="+z)
+        plt.ylim(10, 14.8)
+        plt.xlim(-1.5, 1.6)
+        for NN in NNs:
+            file = plot_directory+"Correlation_NNeighbour_"+NN+"_CentralMvir_z"+z+".txt"
+            NNtable = Table.read(file, format=table_read_format)
+            plt.errorbar(NNtable["log10NNDistance"], NNtable["log10CentralMVir"], yerr=NNtable["log10CentralMVir_1sigma"]*3./2., label="NN="+str(NN), fmt='-o', capsize=3, elinewidth=1, alpha=0.9)
+        plt.xlabel("log10 Distance NN [Mpc/h]")
+        plt.ylabel("log10 CENTRALMVIR")
+        plt.legend()
+        #plt.show()
+        savemyplot(fig, "NNs_z"+z)
+        plt.close()
+
+
+    ###########################
+    ### Plots for Densities ###
+    ###########################
+
+    radii = ['10', '5', '2p5', '1', '0p5']
+    #NNfiles = glob.glob(plot_directory+"Correlation_NNeighbour_5_CentralMvir_z*.txt")
+
+    for radius in radii:
+
+        fig = plt.figure()
+        plt.title(type_of_selection+" -- Density - Central Mvir for r="+radius+"Mpc")
+        plt.ylim(10, 15)
+        plt.xlim(1, 100)
+        for z in redshifts:
+            z=str(z)
+            file = plot_directory+"Correlation_DensityR"+radius+"Mpc_CentralMvir_z"+z+".txt"
+            Dtable = Table.read(file, format=table_read_format)
+            plt.errorbar(Dtable["Density"], Dtable["log10CentralMVir"], yerr=Dtable["log10CentralMVir_1sigma"]*3./2., label="z="+str(z), fmt='-o', capsize=3, elinewidth=0.7, alpha=0.9)
+        plt.xlabel("Density")
+        plt.ylabel("log10 CENTRALMVIR")
+        plt.legend()
+        plt.xscale('log')
+        #plt.show()
+        savemyplot(fig, "DensityR"+radius)
+        plt.close()
+
+
+
+    for z in redshifts:
+        z=str(z)
+        fig = plt.figure()
+        plt.title(type_of_selection+" -- Density - Central Mvir for z="+z)
+        #plt.ylim(10, 14.8)
+        #plt.xlim(-1.5, 1.6)
+        for radius in radii:
+            file = plot_directory+"Correlation_DensityR"+radius+"Mpc_CentralMvir_z"+z+".txt"
+            Dtable = Table.read(file, format=table_read_format)
+            plt.errorbar(Dtable["Density"], Dtable["log10CentralMVir"], yerr=Dtable["log10CentralMVir_1sigma"]*3./2., label="r="+str(radius), fmt='-o', capsize=7, elinewidth=0.7, alpha=0.9)
+        plt.xlabel("Density")
+        plt.ylabel("log10 CENTRALMVIR")
+        plt.legend()
+        plt.xscale('log')
+        #plt.show()
+        savemyplot(fig, "Density_z"+z)
+        plt.close()
+
+
+
+
+
+
+def make_pdf():
+
+    redshifts = ['0.1', '0.3', '0.5', '0.9', '1.5', '3.3']
+
+    dataimages = [["N=3","N=5", "N=7"]]
+
+    for z in redshifts:
+
+        #filename = plot_directory+'Correlation_DensityR10Mpc_CentralMvir_z'+z+'.png'
+
+        filenamea = plot_directory+'Correlation_NNeighbour_3_CentralMvir_z'+z+'_withStyle.png'
+        a = get_image(filenamea, width=6.*cm)
+
+        filenameb = plot_directory+'Correlation_NNeighbour_5_CentralMvir_z'+z+'_withStyle.png'
+        b = get_image(filenameb, width=6.*cm)
+
+        filenamec = plot_directory+'Correlation_NNeighbour_7_CentralMvir_z'+z+'_withStyle.png'
+        c = get_image(filenamec, width=6.*cm)
+
+        dataimages.append([a, b, c])
+
+    #data=[[a,a],[a,a]]
+    c = canvas.Canvas(plot_directory+"Report.pdf", pagesize=portrait(A4))
+    table = rTable(dataimages)#, colWidths=200, rowHeights=50)
+    table.setStyle(TableStyle([
+                               ('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
+                               ('BOX', (0,0), (-1,-1), 0.25, colors.black),
+                               ('BACKGROUND',(0,0),(-1,2),colors.lightgrey)
+                               ]))
+    table.wrapOn(c, 200, 400)
+    table.drawOn(c,20,50)
+    c.save()
 
 if __name__ == '__main__':
     main()
