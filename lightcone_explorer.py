@@ -158,7 +158,7 @@ def main():
         ascii.write(sky_objects, plot_directory+type_of_selection+'_selection.txt', format=table_write_format)
 
     else:
-       sky_objects = Table.read(plot_directory+type_of_selection+'_selection.txt', format=table_read_format)
+        sky_objects = Table.read(plot_directory+type_of_selection+'_selection.txt', format=table_read_format)
 
 
     ################################
@@ -176,6 +176,7 @@ def main():
         ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_borders.txt', format=table_write_format)
     else:
         sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_borders.txt', format=table_read_format)
+
 
     #simple_sky_plot(sky_objects)
 
@@ -240,7 +241,7 @@ def distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor):
     dist_2_border_deg_column = Column(data=distance_to_border_deg, name="distance_to_border_deg")
     #print dist_2_border_deg_column
     sky_objects.add_column(dist_2_border_deg_column)
-    dist_2_border_Mpch_column = Column(data=distance_to_border_Mpch, name="distance_to_border_Mpc/h")
+    dist_2_border_Mpch_column = Column(data=distance_to_border_Mpch, name="distance_to_border_Mpch")
     sky_objects.add_column(dist_2_border_Mpch_column)
 
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
@@ -251,7 +252,7 @@ def distance_to_border(sky_objects, radius_beam, Xcenter, Ycenter, hfactor):
         object["distance_to_border_deg"] = radius_beam - distance_to_center_deg
 
         Mpc_per_deg = mycosmo.kpc_comoving_per_arcmin(object["Z_APP"]).to(u.Mpc/u.deg)
-        object["distance_to_border_Mpc/h"] = object["distance_to_border_deg"] * Mpc_per_deg * hfactor
+        object["distance_to_border_Mpch"] = object["distance_to_border_deg"] * Mpc_per_deg * hfactor
 
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
@@ -1622,7 +1623,7 @@ def compute_densities(sky_objects, hfactor):
     N_nearest = [3, 5, 7, 9]
     N_nearest_names = []
     for N_near in N_nearest:
-        N_nearest_names.append("Dist_nearest_"+str(N_near)+"_in_Mpc/h")
+        N_nearest_names.append("Dist_nearest_"+str(N_near)+"_in_Mpch")
 
     N_nearest_table = Table([N_nearest, N_nearest_names], names=('N_nearest', 'column_names'), meta={'name': 'table of the nearest neighbours'})
     N_nearest_table.sort('N_nearest')
@@ -1715,7 +1716,7 @@ def compute_densities(sky_objects, hfactor):
     # 2nd loop to get the nearest neighbours that I did not get in the first loop.
     while np.any(sky_objects[N_nearest_table[-1]["column_names"]] == 0):
         max_radius *= 2.
-        print "Search radius is now set to "+str(max_radius)+"Mpc/h"
+        print "Search radius is now set to "+str(max_radius)+"Mpch"
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
         for galaxy in sky_objects:
             if galaxy[N_nearest_table[-1]["column_names"]] == 0:
@@ -1792,7 +1793,7 @@ def select_nearest_neighbours(objects_in_cube, N_nearest):
 ###############################
 def test_selected_cube(slice_objects, objects_in_cube):
 
-    slice_objects_borders = slice_objects[np.where(slice_objects["distance_to_border_Mpc/h"]<7.)]
+    slice_objects_borders = slice_objects[np.where(slice_objects["distance_to_border_Mpch"]<7.)]
 
     fig = plt.figure()
     plt.title("Slice with the selected cube")
@@ -1863,7 +1864,7 @@ def RADec2XY(sky_objects, hfactor):
         #print (mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"])).to(u.kpc/u.deg)
         Mpc_per_deg = mycosmo.kpc_comoving_per_arcmin(galaxy["Z_APP"]).to(u.Mpc/u.deg)
 
-        # Distances to be in Mpc/h:
+        # Distances to be in Mpch:
         X_comoving = np.append(X_comoving, RA * Mpc_per_deg * hfactor)
         Y_comoving = np.append(Y_comoving, Dec * Mpc_per_deg * hfactor)
 
@@ -2117,7 +2118,7 @@ def checks_correlations(sky_objects, densities_table, hfactor):
         objects_inside_NN_lists = []
         for NN_value in NN_values:
             # Positions of the objects to keep:
-            objects_inside_NN = np.where(sky_objects["Dist_nearest_"+str(NN_value)+"_in_Mpc/h"] <= sky_objects["distance_to_border_Mpch"])[0]
+            objects_inside_NN = np.where(sky_objects["Dist_nearest_"+str(NN_value)+"_in_Mpch"] <= sky_objects["distance_to_border_Mpch"])[0]
             objects_inside_NN_lists.append(objects_inside_NN)
             NN_toofar = len(sky_objects) - len(objects_inside_NN)
             print "There are "+str(NN_toofar)+ " objects with "+str(NN_value)+"th nearest neighbours too close to the border ("+str(float(NN_toofar)/float(len(sky_objects))*100.)+"%)"
@@ -2130,7 +2131,7 @@ def checks_correlations(sky_objects, densities_table, hfactor):
 
             print len(zsample[0])
 
-            xcolumn = "Dist_nearest_"+str(NN_values[i])+"_in_Mpc/h"
+            xcolumn = "Dist_nearest_"+str(NN_values[i])+"_in_Mpch"
 
             NN_plot = np.log10(subsample_in[zsample][xcolumn])
             logCMvir = np.log10(subsample_in[zsample]["CENTRALMVIR"])
@@ -2265,7 +2266,7 @@ def plot_trends():
             file = plot_directory+"Correlation_NNeighbour_"+NN+"_CentralMvir_z"+z+".txt"
             NNtable = Table.read(file, format=table_read_format)
             plt.errorbar(NNtable["log10NNDistance"], NNtable["medianlog10CentralMVir"], yerr=NNtable["log10CentralMVir_1sigma"]*3./2., label="z="+str(z), fmt='-o', capsize=7, elinewidth=2, alpha=0.9)
-        plt.xlabel("log10 Distance NN [Mpc/h]")
+        plt.xlabel("log10 Distance NN [Mpch]")
         plt.ylabel("log10 CENTRALMVIR")
         plt.legend()
         #plt.show()
@@ -2283,7 +2284,7 @@ def plot_trends():
             file = plot_directory+"Correlation_NNeighbour_"+NN+"_CentralMvir_z"+z+".txt"
             NNtable = Table.read(file, format=table_read_format)
             plt.errorbar(NNtable["log10NNDistance"], NNtable["medianlog10CentralMVir"], yerr=NNtable["log10CentralMVir_1sigma"]*3./2., label="NN="+str(NN), fmt='-o', capsize=3, elinewidth=1, alpha=0.9)
-        plt.xlabel("log10 Distance NN [Mpc/h]")
+        plt.xlabel("log10 Distance NN [Mpch]")
         plt.ylabel("log10 CENTRALMVIR")
         plt.legend()
         #plt.show()
@@ -2382,10 +2383,8 @@ def make_subset(sky_objects, hfactor):
     print len(sky_objects)
 
 
-
-
     # selects the objects that are more distant to the border than the 10 Mpc and the 9th NN.
-    where_far_enough = np.where((sky_objects['distance_to_border_Mpch'] > 10.*hfactor) & (sky_objects['distance_to_border_Mpch'] > sky_objects['Dist_nearest_9_in_Mpc/h']))
+    where_far_enough = np.where((sky_objects['distance_to_border_Mpch'] > 10.*hfactor) & (sky_objects['distance_to_border_Mpch'] > sky_objects['Dist_nearest_9_in_Mpch']))
     subsample = sky_objects[where_far_enough]
     print len(subsample)
 
@@ -2399,7 +2398,7 @@ def make_subset(sky_objects, hfactor):
     subsample.add_column(col)
 
     # only variables of interests for analysis
-    subsample = subsample['GALAXYID', 'CENTRALMVIR', 'logCENTRALMVIR', 'DensityR0p5Mpc','DensityR1Mpc','DensityR2p5Mpc','DensityR5Mpc','DensityR10Mpc','Dist_nearest_3_in_Mpc/h','Dist_nearest_5_in_Mpc/h','Dist_nearest_7_in_Mpc/h','Dist_nearest_9_in_Mpc/h']
+    subsample = subsample['GALAXYID', 'CENTRALMVIR', 'logCENTRALMVIR', 'DensityR0p5Mpc','DensityR1Mpc','DensityR2p5Mpc','DensityR5Mpc','DensityR10Mpc','Dist_nearest_3_in_Mpch','Dist_nearest_5_in_Mpch','Dist_nearest_7_in_Mpch','Dist_nearest_9_in_Mpch']
 
     ascii.write(subsample, plot_directory+type_of_selection+"_"+str(zselec)+'_Eureqa.txt')
 
@@ -2418,86 +2417,173 @@ def make_subset(sky_objects, hfactor):
 
 def find_other_correlations(sky_objects, densities_table):
 
+    correl_directory = "correlations/"
+    if not os.path.exists(plot_directory+correl_directory) : os.mkdir(plot_directory+correl_directory)
 
-    correlvalue = "SFR"
+    correl_summary_directory = correl_directory+"summary/"
+    if not os.path.exists(plot_directory+correl_summary_directory) : os.mkdir(plot_directory+correl_summary_directory)
 
-    # DENSITIES
+    correlvalues = ["SFR", "STELLARMASS", "MVIR", "METALLICITY_STARS", "METALLICITY_COLDGAS", "COLDGAS", "QUASARACCRETIONRATE", "RADIOACCRETIONRATE", "MERGON", "MWAGE", "MBH"]
 
-    #for density_radius in densities_table:
+    for correlvalue in correlvalues:
 
-    ndensity = 3
-    density_radius = densities_table["search_radii"][ndensity]
-    xcolumn = densities_table["column_names"][ndensity]
+        print correlvalue
 
-    sky_objects_in = select_objects_inside(sky_objects, densities_table, xcolumn)
+        # DENSITIES
 
-    table_median = compute_median_density(sky_objects, densities_table, xcolumn, correlvalue)
-    print table_median.columns
+        #for density_radius in densities_table:
 
+        for ndensity in np.arange(len(densities_table)):
+            density_radius = densities_table["search_radii"][ndensity]
+            xcolumn = densities_table["column_names"][ndensity]
 
+            sky_objects_in = select_objects_inside(sky_objects, densities_table, xcolumn)
 
+            table_median = compute_median_density(sky_objects_in, xcolumn, correlvalue)
 
-    fig = plt.figure()
-    plt.title(type_of_selection+" "+xcolumn+" - "+correlvalue)
-    plt.xlabel(xcolumn)
-    plt.ylabel(correlvalue)
-
-    plt.plot(sky_objects_in[xcolumn], sky_objects_in[correlvalue], ",r", ms=2, alpha = 0.5)
-
-    #plt.fill_between(table_median[xcolumn], table_median["liminf_2sigma_"+correlvalue], table_median["limsup_2sigma_"+correlvalue], alpha = 0.8, label="2s dispersion")
-    plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.8, label="1s dispersion")
-
-    plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-")
+            ascii.write(table_median, plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_write_format)
 
 
-
-    plt.legend()
-    plt.yscale('log')
-    plt.show()
-    #savemyplot(fig, name_data)
-    plt.close()
-
-
-    # NN
-
-    xcolumn = "Dist_nearest_7_in_Mpc/h"
-    sky_objects_in = select_objects_inside(sky_objects, densities_table, xcolumn)
-
-
-    #print np.isnan(np.log10(sky_objects_in[correlvalue])).any()
-    #print np.isnan(sky_objects_in[xcolumn]).any()
-    #sys.exit()
-
-    # Delete the infs
-    logcorrelvalue = np.log10(sky_objects_in[correlvalue])
-    datatokeep = np.isfinite(logcorrelvalue)
-
-    logcorrelvalue = logcorrelvalue[datatokeep]
-    sky_objects_in = sky_objects_in[datatokeep]
+            fig = plt.figure()
+            plt.title(type_of_selection+" "+xcolumn+" - "+correlvalue)
+            plt.xlabel(xcolumn)
+            plt.ylabel(correlvalue)
+            plt.plot(sky_objects_in[xcolumn], sky_objects_in[correlvalue], ",r", ms=2, alpha = 0.5)
+            #plt.fill_between(table_median[xcolumn], table_median["liminf_2sigma_"+correlvalue], table_median["limsup_2sigma_"+correlvalue], alpha = 0.8, label="2s dispersion")
+            plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.8, label="1s dispersion")
+            plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-")
+            plt.legend()
+            plt.yscale('log')
+            #plt.show()
+            savemyplot(fig, correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
+            plt.close()
 
 
-    fig = plt.figure()
-    plt.title(type_of_selection+" "+xcolumn+" - "+correlvalue)
-    plt.xlabel(xcolumn)
-    plt.ylabel(correlvalue)
-    plt.plot(np.log10(sky_objects_in[xcolumn]), logcorrelvalue, ".", ms=1)
-    #plt.hist2d(sky_objects_in[xcolumn], logcorrelvalue, bins = 30)
-    ax = sns.kdeplot(np.log10(sky_objects_in[xcolumn]), logcorrelvalue, shade=True)#, clip=[(-1.5, 1.6), (10, 14.8)])
-    #ax.collections[0].set_alpha(0)
-    plt.legend()
-    #plt.yscale('log')
-    plt.show()
-    #savemyplot(fig, name_data)
-    plt.close()
+
+        fig = plt.figure()
+        plt.title(type_of_selection+" densities - "+correlvalue)
+        plt.xlabel(xcolumn)
+        plt.ylabel(correlvalue)
+
+        colorplots = ["g", "b", "r", "y", "m"]
+        for ndensity in np.arange(len(densities_table)):
+            xcolumn = densities_table["column_names"][ndensity]
+            table_median = Table.read(plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_read_format)
+            plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.3, label="1s dispersion", facecolor=colorplots[ndensity])
+            plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-", label=xcolumn, color=colorplots[ndensity])
+        plt.legend()
+        plt.yscale('log')
+        plt.xscale('log')
+        #plt.show()
+        savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_densities_medians")
+        plt.close()
 
 
-def compute_median_density(sky_objects, densities_table, varname, correlvalue):
+
+        # NN
+        NNvarnames = ["Dist_nearest_3_in_Mpch", "Dist_nearest_5_in_Mpch", "Dist_nearest_7_in_Mpch", "Dist_nearest_9_in_Mpch"]
+
+        for xcolumn in NNvarnames:
+
+            sky_objects_in = select_objects_inside(sky_objects, densities_table, xcolumn)
+
+            table_median = compute_median_NN(sky_objects_in, xcolumn, correlvalue)
+
+            ascii.write(table_median, plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_write_format)
+
+
+            fig = plt.figure()
+            plt.title(type_of_selection+" "+xcolumn+" - "+correlvalue)
+            plt.xlabel(xcolumn)
+            plt.ylabel(correlvalue)
+            plt.plot(np.log10(sky_objects_in[xcolumn]), sky_objects_in[correlvalue], ".r", ms=1)
+            plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.8, label="1s dispersion")
+            plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-b", ms=1)
+            plt.legend()
+            plt.yscale('log')
+            #plt.show()
+            savemyplot(fig, correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
+            plt.close()
+
+
+        fig = plt.figure()
+        plt.title(type_of_selection+" NN - "+correlvalue)
+        plt.xlabel(xcolumn)
+        plt.ylabel(correlvalue)
+
+        colorplots = ["g", "b", "r", "y", "m"]
+        for i in np.arange(len(NNvarnames)):
+            xcolumn = NNvarnames[i]
+            table_median = Table.read(plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_read_format)
+            plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.3, label="1s dispersion", facecolor=colorplots[i])
+            plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-", label=xcolumn, color=colorplots[i])
+        plt.legend()
+        plt.yscale('log')
+        #plt.show()
+        savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
+        plt.close()
+
+
+def compute_median_NN(sky_objects, varname, correlvalue):
     """
-    Compute the median (and the mean?) of an indicator (eg. SFR) along the different density values
+    Compute the median and the mean and the 68% and 95 % limits of an indicator (eg. SFR) along the different NN values
     :param sky_objects:
-    :param densities_table:
     :param varname:
-    :return: a table of the median values
+    :param correlvalue:
+    :return median_table: a table of the median values
+    """
+
+    sigma1 = 0.68268
+    sigma2 = 0.95449
+
+    NN_axis = np.array([])
+    median_correlvalue = np.array([])
+    std_correlvalue = np.array([])
+    std_log_correlvalue = np.array([])
+    stack_binvalues = np.array([])
+    limsup_1sigma = np.array([])
+    liminf_1sigma = np.array([])
+    limsup_2sigma = np.array([])
+    liminf_2sigma = np.array([])
+
+
+    NNs = np.log10(sky_objects[varname])
+    Nbins = 30
+    minbin = min(NNs)
+    maxbin = max(NNs)
+    binsize = (maxbin - minbin)/Nbins
+    for Nbin in np.arange(Nbins):
+        bin_positions = np.where(np.abs(NNs - binsize/2. - minbin - binsize*Nbin) < binsize/2.)[0]
+        while (len(bin_positions) < 20) and (Nbin-1 < Nbins):
+            Nbin = Nbin + 1
+            bin_positions = np.append(bin_positions, np.where(np.abs(NNs - binsize/2. - minbin - binsize*Nbin) < binsize/2.)[0])
+        NN_axis = np.append(NN_axis, np.mean(NNs[bin_positions]))
+        correl_bin = sky_objects[correlvalue]
+        median_correlvalue = np.append(median_correlvalue, np.median(correl_bin[bin_positions]))
+        std_correlvalue = np.append(std_correlvalue, np.std(correl_bin[bin_positions]))
+
+
+        supbin = np.sort(correl_bin[np.where(correl_bin >= median_correlvalue[-1])[0]])
+        infbin = np.sort(correl_bin[np.where(correl_bin < median_correlvalue[-1])[0]])
+
+        limsup_1sigma = np.append(limsup_1sigma, supbin[len(supbin) * sigma1])
+        liminf_1sigma = np.append(liminf_1sigma, infbin[len(infbin) * (1.-sigma1)])
+        limsup_2sigma = np.append(limsup_2sigma, supbin[len(supbin) * sigma2])
+        liminf_2sigma = np.append(liminf_2sigma, infbin[len(infbin) * (1.-sigma2)])
+
+    #print len()
+
+    median_table = Table([NN_axis, median_correlvalue, std_correlvalue, limsup_1sigma, limsup_2sigma, liminf_1sigma, liminf_2sigma], names= (varname, 'median_'+correlvalue,'std_'+correlvalue, "limsup_1sigma_"+correlvalue, "limsup_2sigma_"+correlvalue, "liminf_1sigma_"+correlvalue, "liminf_2sigma_"+correlvalue), meta={'name': 'NN vs median '+ correlvalue})
+
+    return median_table
+
+
+def compute_median_density(sky_objects, varname, correlvalue):
+    """
+    Compute the median and the mean and the 68% and 95 % limits of an indicator (eg. SFR) along the different density values
+    :param sky_objects:
+    :param varname:
+    :return median_table: a table of the median values
     """
 
     sigma1 = 0.68268
@@ -2543,6 +2629,8 @@ def compute_median_density(sky_objects, densities_table, varname, correlvalue):
             sum_densities = 0.
             sum_len = 0.
 
+    """
+
     bin1 = sky_objects[correlvalue][np.where(sky_objects[varname] == 1)]
     log_bin1 = np.log10(bin1)
     log_bin1 = log_bin1[np.where(np.isfinite(log_bin1))[0]]
@@ -2550,8 +2638,6 @@ def compute_median_density(sky_objects, densities_table, varname, correlvalue):
     bin2 = sky_objects[correlvalue][np.where(sky_objects[varname] == 50)]
     log_bin2 = np.log10(bin2)
     log_bin2 = log_bin1[np.where(np.isfinite(log_bin2))[0]]
-
-    """
 
     print std_log_correlvalue[0]
     print std_log_correlvalue[49]
@@ -2604,7 +2690,7 @@ def select_objects_inside(sky_objects, densities_table, varname):
 
     elif "Dist_nearest" in varname:
         NN_value = varname[13]
-        where_inside_NN = np.where(sky_objects["Dist_nearest_"+str(NN_value)+"_in_Mpc/h"] <= sky_objects["distance_to_border_Mpch"])[0]
+        where_inside_NN = np.where(sky_objects["Dist_nearest_"+str(NN_value)+"_in_Mpch"] <= sky_objects["distance_to_border_Mpch"])[0]
         subsample = sky_objects[where_inside_NN]
 
     else:
