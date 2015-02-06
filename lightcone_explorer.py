@@ -2423,7 +2423,9 @@ def find_other_correlations(sky_objects, densities_table):
     correl_summary_directory = correl_directory+"summary/"
     if not os.path.exists(plot_directory+correl_summary_directory) : os.mkdir(plot_directory+correl_summary_directory)
 
-    correlvalues = ["SFR", "STELLARMASS", "MVIR", "METALLICITY_STARS", "METALLICITY_COLDGAS", "COLDGAS", "QUASARACCRETIONRATE", "RADIOACCRETIONRATE", "MERGON", "MWAGE", "MBH"]
+    correlvalues = ["MBH", "CENTRALMVIR", "MWAGE", "SFR", "STELLARMASS", "MVIR", "METALLICITY_STARS", "METALLICITY_COLDGAS", "COLDGAS"]
+
+
 
     for correlvalue in correlvalues:
 
@@ -2453,7 +2455,16 @@ def find_other_correlations(sky_objects, densities_table):
             plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.8, label="1s dispersion")
             plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-")
             plt.legend()
-            plt.yscale('log')
+            if "METALLICITY" in correlvalue:
+                plt.yscale('linear')
+            elif "MBH" in correlvalue:
+                plt.yscale('symlog')
+                plt.ylim([7*10**4, 5*10**7])
+            else:
+                plt.yscale('log')
+            if "MWAGE" in correlvalue:
+                plt.ylim([3*10**8, 7*10**9])
+
             #plt.show()
             savemyplot(fig, correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
             plt.close()
@@ -2472,7 +2483,15 @@ def find_other_correlations(sky_objects, densities_table):
             plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.3, label="1s dispersion", facecolor=colorplots[ndensity])
             plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-", label=xcolumn, color=colorplots[ndensity])
         plt.legend()
-        plt.yscale('log')
+        if "METALLICITY" in correlvalue:
+            plt.yscale('linear')
+        elif "MBH" in correlvalue:
+            plt.yscale('symlog')
+            plt.ylim([7*10**4, 5*10**7])
+        else:
+            plt.yscale('log')
+        if "MWAGE" in correlvalue:
+            plt.ylim([3*10**8, 7*10**9])
         plt.xscale('log')
         #plt.show()
         savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_densities_medians")
@@ -2500,7 +2519,15 @@ def find_other_correlations(sky_objects, densities_table):
             plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.8, label="1s dispersion")
             plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-b", ms=1)
             plt.legend()
-            plt.yscale('log')
+            if "METALLICITY" in correlvalue:
+                plt.yscale('linear')
+            elif "MBH" in correlvalue:
+                plt.yscale('symlog')
+                plt.ylim([7*10**4, 5*10**7])
+            else:
+                plt.yscale('log')
+            if "MWAGE" in correlvalue:
+                plt.ylim([3*10**8, 7*10**9])
             #plt.show()
             savemyplot(fig, correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
             plt.close()
@@ -2518,9 +2545,17 @@ def find_other_correlations(sky_objects, densities_table):
             plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.3, label="1s dispersion", facecolor=colorplots[i])
             plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-", label=xcolumn, color=colorplots[i])
         plt.legend()
-        plt.yscale('log')
+        if "METALLICITY" in correlvalue:
+            plt.yscale('linear')
+        elif "MBH" in correlvalue:
+            plt.yscale('symlog')
+            plt.ylim([7*10**4, 5*10**7])
+        else:
+            plt.yscale('log')
+        if "MWAGE" in correlvalue:
+            plt.ylim([3*10**8, 7*10**9])
         #plt.show()
-        savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
+        savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_NN_medians")
         plt.close()
 
 
@@ -2564,7 +2599,7 @@ def compute_median_NN(sky_objects, varname, correlvalue):
 
 
         supbin = np.sort(correl_bin[np.where(correl_bin >= median_correlvalue[-1])[0]])
-        infbin = np.sort(correl_bin[np.where(correl_bin < median_correlvalue[-1])[0]])
+        infbin = np.sort(correl_bin[np.where(correl_bin <= median_correlvalue[-1])[0]])
 
         limsup_1sigma = np.append(limsup_1sigma, supbin[len(supbin) * sigma1])
         liminf_1sigma = np.append(liminf_1sigma, infbin[len(infbin) * (1.-sigma1)])
@@ -2616,11 +2651,12 @@ def compute_median_density(sky_objects, varname, correlvalue):
             std_correlvalue = np.append(std_correlvalue, np.std(stack_binvalues))
 
             supbin = np.sort(stack_binvalues[np.where(stack_binvalues >= median_correlvalue[-1])[0]])
-            infbin = np.sort(stack_binvalues[np.where(stack_binvalues < median_correlvalue[-1])[0]])
+            infbin = np.sort(stack_binvalues[np.where(stack_binvalues <= median_correlvalue[-1])[0]])
             limsup_1sigma = np.append(limsup_1sigma, supbin[len(supbin) * sigma1])
-            liminf_1sigma = np.append(liminf_1sigma, infbin[len(infbin) * (1.-sigma1)])
             limsup_2sigma = np.append(limsup_2sigma, supbin[len(supbin) * sigma2])
+            liminf_1sigma = np.append(liminf_1sigma, infbin[len(infbin) * (1.-sigma1)])
             liminf_2sigma = np.append(liminf_2sigma, infbin[len(infbin) * (1.-sigma2)])
+
 
             log_stack_binvalues = np.log10(stack_binvalues)
             std_log_correlvalue = np.append(std_log_correlvalue, np.std(log_stack_binvalues[np.where(np.isfinite(log_stack_binvalues))[0]]))
