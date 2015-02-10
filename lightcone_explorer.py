@@ -210,6 +210,8 @@ def main():
 
     find_other_correlations(sky_objects, densities_table)
 
+    #make_pdf2()
+
     sys.exit()
 
 
@@ -2375,6 +2377,48 @@ def make_pdf():
     table.wrapOn(c, 200, 400)
     table.drawOn(c,20,50)
     c.save()
+
+
+
+
+def make_pdf2():
+
+
+    correl_directory = "correlations/"
+    correl_summary_directory = correl_directory+"summary/"
+
+    correlvalues = ["MBH", "CENTRALMVIR", "MWAGE", "SFR", "STELLARMASS", "MVIR", "METALLICITY_STARS", "METALLICITY_COLDGAS", "COLDGAS"]
+
+    dataimages = [["Densities", "NN"]]
+
+    c = canvas.Canvas(plot_directory+correl_summary_directory+"AutoReportIndics.pdf", pagesize=portrait(A4))
+
+
+    for correlvalue in correlvalues:
+
+        filenamea = plot_directory+correl_summary_directory+type_of_selection+"_"+correlvalue+"_densities_medians.png"
+
+        print filenamea
+
+        a = get_image(filenamea, width=9.*cm)
+
+        filenameb = plot_directory+correl_summary_directory+type_of_selection+"_"+correlvalue+"_NN_medians.png"
+        b = get_image(filenameb, width=9.*cm)
+
+        print filenameb
+
+        dataimages.append([a, b])
+
+    table = rTable(dataimages)#, colWidths=200, rowHeights=50)
+    table.setStyle(TableStyle([
+                               ('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
+                               ('BOX', (0,0), (-1,-1), 0.25, colors.black),
+                               ('BACKGROUND',(0,0),(-1,2),colors.lightgrey)
+                               ]))
+    table.wrapOn(c, 200, 400)
+    table.drawOn(c,20,50)
+    c.save()
+
 
 
 def make_subset(sky_objects, hfactor):
