@@ -208,7 +208,9 @@ def main():
         plot_trends()
 
 
-    find_other_correlations(sky_objects, densities_table)
+    #find_other_correlations(sky_objects, densities_table)
+
+    NNvsDensity(sky_objects, densities_table)
 
     #make_pdf2()
 
@@ -233,6 +235,8 @@ def main():
     #sys.exit()
 
     plot_sky_animate()
+
+
 
 
 
@@ -2778,6 +2782,103 @@ def select_objects_inside(sky_objects, densities_table, varname):
         sys.exit()
 
     return subsample
+
+
+
+def NNvsDensity(sky_objects, densities_table):
+    """
+    Makes plots of NNs vs densities
+    :param sky_objects:
+    :return:
+    """
+
+    for nx in np.arange(len(densities_table)):
+
+        for ny in np.arange(len(densities_table)):
+
+            if nx > ny:
+
+                sky_objects_in = sky_objects
+                x = densities_table["column_names"][nx]
+                y = densities_table["column_names"][ny]
+                sky_objects_in = select_objects_inside(sky_objects_in, densities_table, y)
+                sky_objects_in = select_objects_inside(sky_objects_in, densities_table, x)
+
+                fig = plt.figure(figsize=(8, 8))
+                #plt.plot(sky_objects_in[x], sky_objects_in[y], ',')
+                plt.hist2d(sky_objects_in[x], sky_objects_in[y], bins=30, norm=LogNorm(), cmap='OrRd')
+                plt.plot([1,1],[100,100], "-")
+                plt.xlabel(x)
+                plt.ylabel(y)
+                plt.yscale('log')
+                plt.xscale('log')
+                #plt.xlim([10**-2, 70])
+                #plt.ylim([1, 6*10**2])
+                plt.legend()
+                savemyplot(fig, "DvsD/"+x+"_vs_"+y)
+                #plt.show()
+                plt.close()
+
+
+
+
+    NNvarnames = ["Dist_nearest_3_in_Mpch", "Dist_nearest_5_in_Mpch", "Dist_nearest_7_in_Mpch", "Dist_nearest_9_in_Mpch"]
+
+    for x in NNvarnames:
+
+        for y in NNvarnames:
+
+            if x > y:
+
+                sky_objects_in = sky_objects
+                sky_objects_in = select_objects_inside(sky_objects_in, densities_table, x)
+                sky_objects_in = select_objects_inside(sky_objects_in, densities_table, y)
+
+
+                fig = plt.figure(figsize=(8, 8))
+                #plt.plot(sky_objects_in[x], sky_objects_in[y], ',')
+                #sns.kdeplot(sky_objects_in[x], sky_objects_in[y], shade=True)
+                plt.plot(sky_objects_in[x], sky_objects_in[y], ',')
+                plt.plot([0.01,60], [0.01,60], '-')
+                plt.xlabel(x)
+                plt.ylabel(y)
+                plt.yscale('log')
+                plt.xscale('log')
+                #plt.xlim([10**-2, 70])
+                #plt.ylim([1, 6*10**2])
+                plt.legend()
+                savemyplot(fig, "NNvsNN/"+x+"_vs_"+y)
+                #plt.show()
+                plt.close()
+
+
+
+    NNvarnames = ["Dist_nearest_3_in_Mpch", "Dist_nearest_5_in_Mpch", "Dist_nearest_7_in_Mpch", "Dist_nearest_9_in_Mpch"]
+
+
+    for ndensity in np.arange(len(densities_table)):
+
+        for x in NNvarnames:
+
+            sky_objects_in = sky_objects
+            y = densities_table["column_names"][ndensity]
+            sky_objects_in = select_objects_inside(sky_objects_in, densities_table, y)
+            sky_objects_in = select_objects_inside(sky_objects_in, densities_table, x)
+
+            fig = plt.figure(figsize=(8, 8))
+            plt.plot(sky_objects_in[x], sky_objects_in[y], '.')
+            plt.xlabel(x)
+            plt.ylabel(y)
+            plt.yscale('log')
+            plt.xscale('log')
+            plt.xlim([10**-2, 70])
+            plt.ylim([1, 6*10**2])
+            plt.legend()
+            savemyplot(fig, x+"_vs_"+y)
+            #plt.show()
+            plt.close()
+
+
 
 
 if __name__ == '__main__':
