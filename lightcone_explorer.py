@@ -208,9 +208,29 @@ def main():
         plot_trends()
 
 
-    #find_other_correlations(sky_objects, densities_table)
+    do_find_other_correlations = False
+    if do_find_other_correlations:
+        find_other_correlations(sky_objects, densities_table)
 
-    NNvsDensity(sky_objects, densities_table)
+    look_densities_themselves = False
+    if look_densities_themselves:
+        NNvsDensity(sky_objects, densities_table)
+
+
+    ##############################
+    #  Densities and Nearby   ####
+    # Neighbours computation: ####
+    #          2D             ####
+    ##############################
+    compute_densities_and_NN_2D = True
+    if compute_densities_and_NN_2D:
+        sky_objects, densities_table = compute_densities_2D(sky_objects, hfactor)
+    else:
+        sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_read_format)
+        densities_table = Table.read(plot_directory+type_of_selection+'_radii_densities_table_2D.txt', format=table_read_format)
+
+
+
 
     #make_pdf2()
 
@@ -1604,11 +1624,12 @@ def selec_3colors_CFHTLS():
 ####################################
 ####   Compute the densities    ####
 #### and the nearest neighbours ####
+####         in 3D              ####
 ####################################
 # 15 minutes to run to N=9
 def compute_densities(sky_objects, hfactor):
 
-    print "Computing the densities"
+    print "Computing the densities in 3D"
 
     ### DENSITIES IN SPHERES - initialization
     # Makes a table of the radii on which computing the densities.
@@ -1703,8 +1724,7 @@ def compute_densities(sky_objects, hfactor):
     else:
         sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_read_format)
 
-
-    print "I found "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[i]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
+    print "I found "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[-1]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
 
     """
@@ -1741,7 +1761,7 @@ def compute_densities(sky_objects, hfactor):
                     for i in np.arange(len(N_nearest_table)):
                         galaxy[N_nearest_table[i]["column_names"]] = nearby[i]
 
-        print "I now have "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[i]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
+        print "I now have "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[-1]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
         ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_write_format)
 
@@ -2787,7 +2807,7 @@ def select_objects_inside(sky_objects, densities_table, varname):
 
 def NNvsDensity(sky_objects, densities_table):
     """
-    Makes plots of NNs vs densities
+    Makes plots of NNs vs densities, NN vs NN, densities vs densities.
     :param sky_objects:
     :return:
     """
@@ -2877,6 +2897,190 @@ def NNvsDensity(sky_objects, densities_table):
             savemyplot(fig, x+"_vs_"+y)
             #plt.show()
             plt.close()
+
+
+
+
+
+
+####################################
+####   Compute the densities    ####
+#### and the nearest neighbours ####
+####         in 2D              ####
+####################################
+def compute_densities_2D(sky_objects, hfactor):
+
+    print "Computing the densities in 2D"
+
+    ### DENSITIES IN CIRCLES - initialization
+    # Makes a table of the radii on which computing the densities.
+    # If you want to change the radii, change search_radii and search_radii_names accordingly.
+    search_radii_2D = np.array([0.2, 0.5, 1., 2., 5.]) / 60. # arcsecs
+    search_radii_names_2D = ["DensityR0p2min_2D", "DensityR0p5min_2D", "DensityR1min_2D", "DensityR2min_2D", "DensityR5min_2D"]
+    densities_table_2D = Table([search_radii_2D, search_radii_names_2D], names=('search_radii_2D', 'column_names_2D'), meta={'name': 'table of the densities in 2D'})
+    densities_table_2D.sort('search_radii_2D')
+    ascii.write(densities_table_2D, plot_directory+type_of_selection+'_radii_densities_2D_table.txt', format=table_write_format)
+    max_radius = max(densities_table_2D['search_radii_2D'])
+
+    # Adds density columns in the table of results
+    for densities_row in densities_table_2D:
+        sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=densities_row['column_names_2D']))
+
+
+    ### NEAREST NEIGHBOURS - initialization
+    N_nearest_2D = [3, 5, 7, 9, 11]
+    N_nearest_names_2D = []
+    for N_near in N_nearest_2D:
+        N_nearest_names_2D.append("Dist_nearest_"+str(N_near)+"_in_Mpch_2D")
+
+    N_nearest_table_2D = Table([N_nearest_2D, N_nearest_names_2D], names=('N_nearest_2D', 'column_names'), meta={'name': 'table of the nearest neighbours 2D'})
+    N_nearest_table_2D.sort('N_nearest_2D')
+    N_max = max(N_nearest_table_2D['N_nearest_2D'])
+
+    for N_nearest_row in N_nearest_table_2D:
+        sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=N_nearest_row['column_names']))
+
+
+    ### DENSITIES - computation (also computes some nearest neighbours)
+    skip_calculation_densities = False
+    if skip_calculation_densities is False:
+
+        print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+        for galaxy in sky_objects:
+
+            # Object position X, Y (for the larger radius)
+            Ra, Dec = galaxy["RA"], galaxy["DEC"]
+
+            # Selects objects inside the spatial limits
+            objects_in_square = select_RA_Dec(sky_objects, Ra, Dec, max_radius)
+
+            test_selection_square = False
+            if test_selection_square:
+                test_selected_square(objects_in_square)
+
+            # Computes the distances for each object in the box
+            objects_in_square = get_distances_2D(objects_in_square, Ra, Dec)
+
+            # Get densities inside each sphere inside the cube
+            for densities_row in densities_table_2D:
+                galaxy[densities_row["column_names_2D"]] = len(np.where(objects_in_square["distances_2D"] <= densities_row["search_radii_2D"])[0])
+
+
+            # Order and get Nth nearby object
+            # if the density in the larger sphere is greater than N_max, then
+            # it means that there is no need for more computation for finding the nearest neighbours
+            # galaxy[densities_table[-1]["column_names"]] : -1 works because the densities_table is orders, so -1 gets the largest radius
+            if galaxy[densities_table_2D[-1]["column_names_2D"]] > N_max:
+                neighbour_distances = select_nearest_neighbours_2D(objects_in_square, N_nearest_table_2D["N_nearest_2D"])
+                for i in np.arange(len(N_nearest_table_2D)):
+                    galaxy[N_nearest_table_2D[i]["column_names"]] = neighbour_distances[i]
+
+        print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+
+        ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_write_format)
+
+    else:
+        sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_read_format)
+
+    print "I found "+str(np.count_nonzero(sky_objects[N_nearest_table_2D[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table_2D[-1]["N_nearest_2D"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
+
+
+
+    """
+    fig = plt.figure()
+    plt.title("Densities")
+    plt.xlabel("Density")
+    plt.ylabel("#")
+    plt.hist([sky_objects['DensityR1Mpc'], sky_objects['DensityR2p5Mpc'], sky_objects['DensityR5Mpc'], sky_objects['DensityR10Mpc']], bins=np.arange(30), label=['1Mpc', '2.5Mpc', '5Mpc', '10Mpc'])
+    #plt.show()
+    savemyplot(fig, "Densities")
+    plt.close()
+    """
+
+    ### NEAREST NEIGHBOURS - computation
+    # 2nd loop to get the nearest neighbours that I did not get in the first loop.
+    while np.any(sky_objects[N_nearest_table_2D[-1]["column_names"]] == 0):
+        max_radius *= 2.
+        print "Search radius is now set to "+str(max_radius)+"arcsec"
+        print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+        for galaxy in sky_objects:
+            if galaxy[N_nearest_table_2D[-1]["column_names"]] == 0:
+
+                Ra, Dec = galaxy["RA"], galaxy["DEC"]
+                objects_in_square = select_RA_Dec(sky_objects, Ra, Dec, max_radius)
+
+                objects_in_square = get_distances_2D(objects_in_square, Ra, Dec)
+
+                # Checks if we found enough nearby neighbours. Otherwise, it will try again at the next while with increased max_radius
+                if len(np.where(objects_in_square["distances_2D"] <= max_radius)[0]) > N_max:
+                    neighbour_distances = select_nearest_neighbours_2D(objects_in_square, N_nearest_table_2D["N_nearest_2D"])
+                    for i in np.arange(len(N_nearest_table_2D)):
+                        galaxy[N_nearest_table_2D[i]["column_names"]] = neighbour_distances[i]
+
+        print "I now have "+str(np.count_nonzero(sky_objects[N_nearest_table_2D[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table_2D[-1]["N_nearest_2D"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
+
+        ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_write_format)
+
+    print strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+    return sky_objects, densities_table_2D
+
+
+
+
+####################################
+####  Selects on RA and Dec     ####
+####################################
+def select_RA_Dec(objects, Ra, Dec, max_radius):
+    selection = objects[(np.abs(objects["RA"] - Ra) <= max_radius) & (np.abs(objects["DEC"] - Dec) <= max_radius)]
+    return selection
+
+
+
+###############################
+#### Just some plot tests  ####
+###############################
+def test_selected_square(objects_in_square):
+
+    fig = plt.figure()
+    plt.title("Slice with the selected square")
+    plt.xlabel("RA")
+    plt.ylabel("Dec")
+    plt.plot(objects_in_square["RA"], objects_in_square["DEC"], ".")
+    plt.show()
+    #savemyplot(fig, "test_selected_cube")
+    plt.close()
+
+
+####################################
+####  Computes distances in 2D  ####
+####  between all objects in a  ####
+####  table and a point RA,Dec  ####
+####################################
+def get_distances_2D(objects_in_square, Ra, Dec):
+    dist2galaxy_2D = np.sqrt( (objects_in_square["RA"] - Ra)**2. + (objects_in_square["DEC"] - Dec)**2. )
+    col_dist = Column(data=dist2galaxy_2D, name="distances_2D")
+    objects_in_square.add_column(col_dist)
+    return objects_in_square
+
+
+
+########################################
+#### Selects the nearest neighbours ####
+#### (3, 5... given by N_nearest)   ####
+#### from the distances already     ####
+#### computed in the data table     ####
+####      (objects_in_cube)         ####
+####              IN 2D             ####
+########################################
+def select_nearest_neighbours_2D(objects_in_square, N_nearest):
+    objects_in_square.sort("distances_2D")
+    distances_of_nearby = np.array([])
+    for Ni in N_nearest:
+        distances_of_nearby = np.append(distances_of_nearby, objects_in_square[Ni]["distances_2D"])
+    return distances_of_nearby
 
 
 
