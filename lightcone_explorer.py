@@ -217,17 +217,23 @@ def main():
         NNvsDensity(sky_objects, densities_table)
 
 
-    ##############################
-    #  Densities and Nearby   ####
-    # Neighbours computation: ####
-    #          2D             ####
-    ##############################
+    #################################
+    ####  Densities and Nearby   ####
+    #### Neighbours computation: ####
+    ####          2D             ####
+    #################################
     compute_densities_and_NN_2D = True
     if compute_densities_and_NN_2D:
-        sky_objects, densities_table = compute_densities_2D(sky_objects, hfactor)
+        sky_objects, densities_table_2D = compute_densities_2D(sky_objects, hfactor)
     else:
         sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_read_format)
-        densities_table = Table.read(plot_directory+type_of_selection+'_radii_densities_table_2D.txt', format=table_read_format)
+        densities_table_2D = Table.read(plot_directory+type_of_selection+'_radii_densities_table_2D.txt', format=table_read_format)
+
+
+
+    do_find_other_correlations_2D = True
+    if do_find_other_correlations_2D:
+        find_other_correlations_2D(sky_objects, densities_table_2D)
 
 
 
@@ -3082,6 +3088,150 @@ def select_nearest_neighbours_2D(objects_in_square, N_nearest):
         distances_of_nearby = np.append(distances_of_nearby, objects_in_square[Ni]["distances_2D"])
     return distances_of_nearby
 
+
+
+def find_other_correlations_2D(sky_objects, densities_table_2D):
+
+    correl_directory = "correlations_2D/"
+    if not os.path.exists(plot_directory+correl_directory) : os.mkdir(plot_directory+correl_directory)
+
+    correl_summary_directory = correl_directory+"summary/"
+    if not os.path.exists(plot_directory+correl_summary_directory) : os.mkdir(plot_directory+correl_summary_directory)
+
+    correlvalues = ["MBH", "CENTRALMVIR", "MWAGE", "SFR", "STELLARMASS", "MVIR", "METALLICITY_STARS", "METALLICITY_COLDGAS", "COLDGAS"]
+
+
+
+    for correlvalue in correlvalues:
+
+        print correlvalue
+
+        # DENSITIES
+
+        #for density_radius in densities_table:
+
+        for ndensity in np.arange(len(densities_table_2D)):
+            density_radius = densities_table_2D["search_radii_2D"][ndensity]
+            xcolumn = densities_table_2D["column_names"][ndensity]
+
+            sky_objects_in = select_objects_inside(sky_objects, densities_table_2D, xcolumn)
+
+            table_median = compute_median_density(sky_objects_in, xcolumn, correlvalue)
+
+            ascii.write(table_median, plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_write_format)
+
+
+            fig = plt.figure()
+            plt.title(type_of_selection+" "+xcolumn+" - "+correlvalue)
+            plt.xlabel(xcolumn)
+            plt.ylabel(correlvalue)
+            plt.plot(sky_objects_in[xcolumn], sky_objects_in[correlvalue], ",r", ms=2, alpha = 0.5)
+            #plt.fill_between(table_median[xcolumn], table_median["liminf_2sigma_"+correlvalue], table_median["limsup_2sigma_"+correlvalue], alpha = 0.8, label="2s dispersion")
+            plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.8, label="1s dispersion")
+            plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-")
+            plt.legend()
+            if "METALLICITY" in correlvalue:
+                plt.yscale('linear')
+            elif "MBH" in correlvalue:
+                plt.yscale('symlog')
+                plt.ylim([7*10**4, 5*10**7])
+            else:
+                plt.yscale('log')
+            if "MWAGE" in correlvalue:
+                plt.ylim([3*10**8, 7*10**9])
+
+            plt.show()
+            savemyplot(fig, correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
+            plt.close()
+
+
+
+        fig = plt.figure()
+        plt.title(type_of_selection+" densities - "+correlvalue)
+        plt.xlabel(xcolumn)
+        plt.ylabel(correlvalue)
+
+        colorplots = ["g", "b", "r", "y", "m"]
+        for ndensity in np.arange(len(densities_table_2D)):
+            xcolumn = densities_table_2D["column_names"][ndensity]
+            table_median = Table.read(plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_read_format)
+            plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.3, label="1s dispersion", facecolor=colorplots[ndensity])
+            plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-", label=xcolumn, color=colorplots[ndensity])
+        plt.legend()
+        if "METALLICITY" in correlvalue:
+            plt.yscale('linear')
+        elif "MBH" in correlvalue:
+            plt.yscale('symlog')
+            plt.ylim([7*10**4, 5*10**7])
+        else:
+            plt.yscale('log')
+        if "MWAGE" in correlvalue:
+            plt.ylim([3*10**8, 7*10**9])
+        plt.xscale('log')
+        plt.show()
+        savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_densities_medians")
+        plt.close()
+
+
+
+        # NN
+        NNvarnames = ["Dist_nearest_3_in_Mpch", "Dist_nearest_5_in_Mpch", "Dist_nearest_7_in_Mpch", "Dist_nearest_9_in_Mpch"]
+
+        for xcolumn in NNvarnames:
+
+            sky_objects_in = select_objects_inside(sky_objects, densities_table_2D, xcolumn)
+
+            table_median = compute_median_NN(sky_objects_in, xcolumn, correlvalue)
+
+            ascii.write(table_median, plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_write_format)
+
+
+            fig = plt.figure()
+            plt.title(type_of_selection+" "+xcolumn+" - "+correlvalue)
+            plt.xlabel(xcolumn)
+            plt.ylabel(correlvalue)
+            plt.plot(np.log10(sky_objects_in[xcolumn]), sky_objects_in[correlvalue], ".r", ms=1)
+            plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.8, label="1s dispersion")
+            plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-b", ms=1)
+            plt.legend()
+            if "METALLICITY" in correlvalue:
+                plt.yscale('linear')
+            elif "MBH" in correlvalue:
+                plt.yscale('symlog')
+                plt.ylim([7*10**4, 5*10**7])
+            else:
+                plt.yscale('log')
+            if "MWAGE" in correlvalue:
+                plt.ylim([3*10**8, 7*10**9])
+            plt.show()
+            savemyplot(fig, correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
+            plt.close()
+
+
+        fig = plt.figure()
+        plt.title(type_of_selection+" NN - "+correlvalue)
+        plt.xlabel(xcolumn)
+        plt.ylabel(correlvalue)
+
+        colorplots = ["g", "b", "r", "y", "m"]
+        for i in np.arange(len(NNvarnames)):
+            xcolumn = NNvarnames[i]
+            table_median = Table.read(plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_read_format)
+            plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.3, label="1s dispersion", facecolor=colorplots[i])
+            plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-", label=xcolumn, color=colorplots[i])
+        plt.legend()
+        if "METALLICITY" in correlvalue:
+            plt.yscale('linear')
+        elif "MBH" in correlvalue:
+            plt.yscale('symlog')
+            plt.ylim([7*10**4, 5*10**7])
+        else:
+            plt.yscale('log')
+        if "MWAGE" in correlvalue:
+            plt.ylim([3*10**8, 7*10**9])
+        plt.show()
+        savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_NN_medians")
+        plt.close()
 
 
 
