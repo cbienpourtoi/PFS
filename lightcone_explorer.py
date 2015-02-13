@@ -227,7 +227,7 @@ def main():
         sky_objects, densities_table_2D = compute_densities_2D(sky_objects, hfactor)
     else:
         sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_read_format)
-        densities_table_2D = Table.read(plot_directory+type_of_selection+'_radii_densities_table_2D.txt', format=table_read_format)
+        densities_table_2D = Table.read(plot_directory+type_of_selection+'_radii_densities_2D_table.txt', format=table_read_format)
 
 
 
@@ -2921,8 +2921,8 @@ def compute_densities_2D(sky_objects, hfactor):
     ### DENSITIES IN CIRCLES - initialization
     # Makes a table of the radii on which computing the densities.
     # If you want to change the radii, change search_radii and search_radii_names accordingly.
-    search_radii_2D = np.array([0.2, 0.5, 1., 2., 5.]) / 60. # arcsecs
-    search_radii_names_2D = ["DensityR0p2min_2D", "DensityR0p5min_2D", "DensityR1min_2D", "DensityR2min_2D", "DensityR5min_2D"]
+    search_radii_2D = np.array([0.02, 0.05, 0.1, 0.2, 0.5, 1.]) / 60. # degrees
+    search_radii_names_2D = ["DensityR0p02min_2D", "DensityR0p05min_2D", "DensityR0p1min_2D", "DensityR0p2min_2D", "DensityR0p5min_2D", "DensityR1min_2D"]
     densities_table_2D = Table([search_radii_2D, search_radii_names_2D], names=('search_radii_2D', 'column_names_2D'), meta={'name': 'table of the densities in 2D'})
     densities_table_2D.sort('search_radii_2D')
     ascii.write(densities_table_2D, plot_directory+type_of_selection+'_radii_densities_2D_table.txt', format=table_write_format)
@@ -2946,6 +2946,8 @@ def compute_densities_2D(sky_objects, hfactor):
     for N_nearest_row in N_nearest_table_2D:
         sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=N_nearest_row['column_names']))
 
+
+    # This part takes 1h15 for colsel3
 
     ### DENSITIES - computation (also computes some nearest neighbours)
     skip_calculation_densities = False
@@ -3098,7 +3100,7 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
     correl_summary_directory = correl_directory+"summary/"
     if not os.path.exists(plot_directory+correl_summary_directory) : os.mkdir(plot_directory+correl_summary_directory)
 
-    correlvalues = ["MBH", "CENTRALMVIR", "MWAGE", "SFR", "STELLARMASS", "MVIR", "METALLICITY_STARS", "METALLICITY_COLDGAS", "COLDGAS"]
+    correlvalues = ["CENTRALMVIR", "MBH", "MWAGE", "SFR", "STELLARMASS", "MVIR", "METALLICITY_STARS", "METALLICITY_COLDGAS", "COLDGAS"]
 
 
 
@@ -3111,10 +3113,11 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
         #for density_radius in densities_table:
 
         for ndensity in np.arange(len(densities_table_2D)):
-            density_radius = densities_table_2D["search_radii_2D"][ndensity]
-            xcolumn = densities_table_2D["column_names"][ndensity]
 
-            sky_objects_in = select_objects_inside(sky_objects, densities_table_2D, xcolumn)
+            density_radius = densities_table_2D["search_radii_2D"][ndensity]
+            xcolumn = densities_table_2D["column_names_2D"][ndensity]
+
+            sky_objects_in = select_objects_inside_2D(sky_objects, densities_table_2D, xcolumn)
 
             table_median = compute_median_density(sky_objects_in, xcolumn, correlvalue)
 
@@ -3140,7 +3143,7 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
             if "MWAGE" in correlvalue:
                 plt.ylim([3*10**8, 7*10**9])
 
-            plt.show()
+            #plt.show()
             savemyplot(fig, correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
             plt.close()
 
@@ -3151,9 +3154,9 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
         plt.xlabel(xcolumn)
         plt.ylabel(correlvalue)
 
-        colorplots = ["g", "b", "r", "y", "m"]
+        colorplots = ["g", "b", "r", "y", "m", "c", "k", "0.75"]
         for ndensity in np.arange(len(densities_table_2D)):
-            xcolumn = densities_table_2D["column_names"][ndensity]
+            xcolumn = densities_table_2D["column_names_2D"][ndensity]
             table_median = Table.read(plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_read_format)
             plt.fill_between(table_median[xcolumn], table_median["liminf_1sigma_"+correlvalue], table_median["limsup_1sigma_"+correlvalue], alpha = 0.3, label="1s dispersion", facecolor=colorplots[ndensity])
             plt.plot(table_median[xcolumn], table_median["median_"+correlvalue], "-", label=xcolumn, color=colorplots[ndensity])
@@ -3168,7 +3171,7 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
         if "MWAGE" in correlvalue:
             plt.ylim([3*10**8, 7*10**9])
         plt.xscale('log')
-        plt.show()
+        #plt.show()
         savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_densities_medians")
         plt.close()
 
@@ -3179,7 +3182,7 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
 
         for xcolumn in NNvarnames:
 
-            sky_objects_in = select_objects_inside(sky_objects, densities_table_2D, xcolumn)
+            sky_objects_in = select_objects_inside_2D(sky_objects, densities_table_2D, xcolumn)
 
             table_median = compute_median_NN(sky_objects_in, xcolumn, correlvalue)
 
@@ -3203,7 +3206,7 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
                 plt.yscale('log')
             if "MWAGE" in correlvalue:
                 plt.ylim([3*10**8, 7*10**9])
-            plt.show()
+            #plt.show()
             savemyplot(fig, correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians")
             plt.close()
 
@@ -3229,9 +3232,41 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
             plt.yscale('log')
         if "MWAGE" in correlvalue:
             plt.ylim([3*10**8, 7*10**9])
-        plt.show()
+        #plt.show()
         savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_NN_medians")
         plt.close()
+
+
+
+
+def select_objects_inside_2D(sky_objects, densities_table_2D, varname):
+    """ Selects only the objects that are far enough from the border to have correct densities or NN in 2D
+    :param sky_objects: main catalog
+    :param densities_table: table of the density names and radii
+    :param varname: selected density
+    :return subsample: the selection of objects far enough from the border
+    """
+
+    if "Density" in varname:
+        Ndensity = np.where(densities_table_2D["column_names_2D"] == varname)
+        radius = densities_table_2D["search_radii_2D"][Ndensity]
+
+        where_inside_density = np.where(sky_objects["distance_to_border_deg"] >= radius)[0]
+        subsample = sky_objects[where_inside_density]
+
+    elif "Dist_nearest" in varname:
+        NN_value = varname[13]
+        where_inside_NN = np.where(sky_objects["Dist_nearest_"+str(NN_value)+"_in_Mpch"] <= sky_objects["distance_to_border_Mpch"])[0]
+        subsample = sky_objects[where_inside_NN]
+
+    else:
+        "Does not understand which variable to use (density or NN) to select by distance to border"
+        sys.exit()
+
+    return subsample
+
+
+
 
 
 
