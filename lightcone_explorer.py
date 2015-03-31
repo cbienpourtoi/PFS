@@ -222,20 +222,19 @@ def main():
     #### Neighbours computation: ####
     ####          2D             ####
     #################################
-    compute_densities_and_NN_2D = True
+    compute_densities_and_NN_2D = False
     if compute_densities_and_NN_2D:
-        sky_objects, densities_table_2D = compute_densities_2D(sky_objects, hfactor)
+        sky_objects, densities_table_2D, NN_table_2D = compute_densities_2D(sky_objects, hfactor)
     else:
         sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_read_format)
         densities_table_2D = Table.read(plot_directory+type_of_selection+'_radii_densities_2D_table.txt', format=table_read_format)
+        NN_table_2D = Table.read(plot_directory+type_of_selection+'_NN_2D_table.txt', format=table_read_format)
 
 
 
     do_find_other_correlations_2D = True
     if do_find_other_correlations_2D:
-        find_other_correlations_2D(sky_objects, densities_table_2D)
-
-
+        find_other_correlations_2D(sky_objects, densities_table_2D, NN_table_2D)
 
 
     #make_pdf2()
@@ -2934,16 +2933,16 @@ def compute_densities_2D(sky_objects, hfactor):
 
 
     ### NEAREST NEIGHBOURS - initialization
-    N_nearest_2D = [3, 5, 7, 9, 11]
+    N_nearest_2D = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
     N_nearest_names_2D = []
     for N_near in N_nearest_2D:
-        N_nearest_names_2D.append("Dist_nearest_"+str(N_near)+"_in_Mpch_2D")
+        N_nearest_names_2D.append("Dist_nearest_"+str(N_near)+"_in_deg_2D")
 
-    N_nearest_table_2D = Table([N_nearest_2D, N_nearest_names_2D], names=('N_nearest_2D', 'column_names'), meta={'name': 'table of the nearest neighbours 2D'})
-    N_nearest_table_2D.sort('N_nearest_2D')
-    N_max = max(N_nearest_table_2D['N_nearest_2D'])
+    NN_table_2D = Table([N_nearest_2D, N_nearest_names_2D], names=('N_nearest_2D', 'column_names'), meta={'name': 'table of the nearest neighbours 2D'})
+    NN_table_2D.sort('N_nearest_2D')
+    N_max = max(NN_table_2D['N_nearest_2D'])
 
-    for N_nearest_row in N_nearest_table_2D:
+    for N_nearest_row in NN_table_2D:
         sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=N_nearest_row['column_names']))
 
 
@@ -2980,9 +2979,9 @@ def compute_densities_2D(sky_objects, hfactor):
             # it means that there is no need for more computation for finding the nearest neighbours
             # galaxy[densities_table[-1]["column_names"]] : -1 works because the densities_table is orders, so -1 gets the largest radius
             if galaxy[densities_table_2D[-1]["column_names_2D"]] > N_max:
-                neighbour_distances = select_nearest_neighbours_2D(objects_in_square, N_nearest_table_2D["N_nearest_2D"])
-                for i in np.arange(len(N_nearest_table_2D)):
-                    galaxy[N_nearest_table_2D[i]["column_names"]] = neighbour_distances[i]
+                neighbour_distances = select_nearest_neighbours_2D(objects_in_square, NN_table_2D["N_nearest_2D"])
+                for i in np.arange(len(NN_table_2D)):
+                    galaxy[NN_table_2D[i]["column_names"]] = neighbour_distances[i]
 
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
@@ -2992,7 +2991,7 @@ def compute_densities_2D(sky_objects, hfactor):
     else:
         sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_read_format)
 
-    print "I found "+str(np.count_nonzero(sky_objects[N_nearest_table_2D[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table_2D[-1]["N_nearest_2D"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
+    print "I found "+str(np.count_nonzero(sky_objects[NN_table_2D[-1]["column_names"]]))+ " distances for the "+str(NN_table_2D[-1]["N_nearest_2D"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
 
 
@@ -3009,12 +3008,12 @@ def compute_densities_2D(sky_objects, hfactor):
 
     ### NEAREST NEIGHBOURS - computation
     # 2nd loop to get the nearest neighbours that I did not get in the first loop.
-    while np.any(sky_objects[N_nearest_table_2D[-1]["column_names"]] == 0):
+    while np.any(sky_objects[NN_table_2D[-1]["column_names"]] == 0):
         max_radius *= 2.
-        print "Search radius is now set to "+str(max_radius)+"arcsec"
+        print "Search radius is now set to "+str(max_radius)+"deg"
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
         for galaxy in sky_objects:
-            if galaxy[N_nearest_table_2D[-1]["column_names"]] == 0:
+            if galaxy[NN_table_2D[-1]["column_names"]] == 0:
 
                 Ra, Dec = galaxy["RA"], galaxy["DEC"]
                 objects_in_square = select_RA_Dec(sky_objects, Ra, Dec, max_radius)
@@ -3023,17 +3022,21 @@ def compute_densities_2D(sky_objects, hfactor):
 
                 # Checks if we found enough nearby neighbours. Otherwise, it will try again at the next while with increased max_radius
                 if len(np.where(objects_in_square["distances_2D"] <= max_radius)[0]) > N_max:
-                    neighbour_distances = select_nearest_neighbours_2D(objects_in_square, N_nearest_table_2D["N_nearest_2D"])
-                    for i in np.arange(len(N_nearest_table_2D)):
-                        galaxy[N_nearest_table_2D[i]["column_names"]] = neighbour_distances[i]
+                    neighbour_distances = select_nearest_neighbours_2D(objects_in_square, NN_table_2D["N_nearest_2D"])
+                    for i in np.arange(len(NN_table_2D)):
+                        galaxy[NN_table_2D[i]["column_names"]] = neighbour_distances[i]
 
-        print "I now have "+str(np.count_nonzero(sky_objects[N_nearest_table_2D[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table_2D[-1]["N_nearest_2D"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
+        print "I now have "+str(np.count_nonzero(sky_objects[NN_table_2D[-1]["column_names"]]))+ " distances for the "+str(NN_table_2D[-1]["N_nearest_2D"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
         ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_densities_2D.txt', format=table_write_format)
 
+
+
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
-    return sky_objects, densities_table_2D
+    ascii.write(NN_table_2D, plot_directory+type_of_selection+'_NN_2D_table.txt', format=table_write_format)
+
+    return sky_objects, densities_table_2D, NN_table_2D
 
 
 
@@ -3092,7 +3095,7 @@ def select_nearest_neighbours_2D(objects_in_square, N_nearest):
 
 
 
-def find_other_correlations_2D(sky_objects, densities_table_2D):
+def find_other_correlations_2D(sky_objects, densities_table_2D, NN_table_2D):
 
     correl_directory = "correlations_2D/"
     if not os.path.exists(plot_directory+correl_directory) : os.mkdir(plot_directory+correl_directory)
@@ -3117,7 +3120,7 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
             density_radius = densities_table_2D["search_radii_2D"][ndensity]
             xcolumn = densities_table_2D["column_names_2D"][ndensity]
 
-            sky_objects_in = select_objects_inside_2D(sky_objects, densities_table_2D, xcolumn)
+            sky_objects_in = select_objects_inside_2D(sky_objects, densities_table_2D, NN_table_2D, xcolumn)
 
             table_median = compute_median_density(sky_objects_in, xcolumn, correlvalue)
 
@@ -3151,7 +3154,7 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
 
         fig = plt.figure()
         plt.title(type_of_selection+" densities - "+correlvalue)
-        plt.xlabel(xcolumn)
+        plt.xlabel("densities")
         plt.ylabel(correlvalue)
 
         colorplots = ["g", "b", "r", "y", "m", "c", "k", "0.75"]
@@ -3178,11 +3181,12 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
 
 
         # NN
-        NNvarnames = ["Dist_nearest_3_in_Mpch", "Dist_nearest_5_in_Mpch", "Dist_nearest_7_in_Mpch", "Dist_nearest_9_in_Mpch"]
+        NNvarnames = NN_table_2D["column_names"]
+        #["Dist_nearest_3_in_Mpch_2D", "Dist_nearest_5_in_Mpch_2D", "Dist_nearest_7_in_Mpch_2D", "Dist_nearest_9_in_Mpch_2D", "Dist_nearest_11_in_Mpch_2D"]
 
         for xcolumn in NNvarnames:
 
-            sky_objects_in = select_objects_inside_2D(sky_objects, densities_table_2D, xcolumn)
+            sky_objects_in = select_objects_inside_2D(sky_objects, densities_table_2D, NN_table_2D, xcolumn)
 
             table_median = compute_median_NN(sky_objects_in, xcolumn, correlvalue)
 
@@ -3213,10 +3217,10 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
 
         fig = plt.figure()
         plt.title(type_of_selection+" NN - "+correlvalue)
-        plt.xlabel(xcolumn)
+        plt.xlabel("NN distance (deg)")
         plt.ylabel(correlvalue)
 
-        colorplots = ["g", "b", "r", "y", "m"]
+        colorplots = ["g", "b", "r", "y", "m", "g", "b", "r", "y", "m", "g", "b", "r", "y", "m", "g", "b", "r", "y", "m", "g", "b", "r", "y", "m", "g", "b", "r", "y", "m", "g", "b", "r", "y", "m"]
         for i in np.arange(len(NNvarnames)):
             xcolumn = NNvarnames[i]
             table_median = Table.read(plot_directory+correl_directory+type_of_selection+"_"+correlvalue+"_"+xcolumn+"_medians.dat", format = table_read_format)
@@ -3232,6 +3236,8 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
             plt.yscale('log')
         if "MWAGE" in correlvalue:
             plt.ylim([3*10**8, 7*10**9])
+        if "CENTRALMVIR" in correlvalue:
+            plt.ylim([10**11, 10**15])
         #plt.show()
         savemyplot(fig, correl_summary_directory+type_of_selection+"_"+correlvalue+"_NN_medians")
         plt.close()
@@ -3239,11 +3245,11 @@ def find_other_correlations_2D(sky_objects, densities_table_2D):
 
 
 
-def select_objects_inside_2D(sky_objects, densities_table_2D, varname):
+def select_objects_inside_2D(sky_objects, densities_table_2D, NN_table_2D, varname):
     """ Selects only the objects that are far enough from the border to have correct densities or NN in 2D
     :param sky_objects: main catalog
     :param densities_table: table of the density names and radii
-    :param varname: selected density
+    :param varname: selected density or NN
     :return subsample: the selection of objects far enough from the border
     """
 
@@ -3255,8 +3261,14 @@ def select_objects_inside_2D(sky_objects, densities_table_2D, varname):
         subsample = sky_objects[where_inside_density]
 
     elif "Dist_nearest" in varname:
-        NN_value = varname[13]
-        where_inside_NN = np.where(sky_objects["Dist_nearest_"+str(NN_value)+"_in_Mpch"] <= sky_objects["distance_to_border_Mpch"])[0]
+
+        print varname
+        #sys.exit()
+
+        #pos = np.where(NN_table_2D['column_names'] == varname)
+        #NN_value = NN_table_2D['N_nearest_2D'][pos]
+        #where_inside_NN = np.where(sky_objects["Dist_nearest_"+str(NN_value)+"_in_Mpch"] <= sky_objects["distance_to_border_Mpch"])[0]
+        where_inside_NN = np.where(sky_objects[varname] <= sky_objects["distance_to_border_Mpch"])[0]
         subsample = sky_objects[where_inside_NN]
 
     else:
