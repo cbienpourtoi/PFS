@@ -126,7 +126,7 @@ def main():
     #### Selects galaxies ####
     ##########################
     # Set as False if you dont want to re-read the initial catalog, but only take the last saved selection (gaussian, usually)
-    compute_selection = False
+    compute_selection = True
     if compute_selection:
 
         NPmin = 50 #Number of particles to consider for an object (20 is the selection from the catalog itself)
@@ -167,7 +167,7 @@ def main():
     ################################
     # Works only if beam is circular AND centered on (0,0) !
     # Usefull for taking care of border effects
-    compute_distances_border = False
+    compute_distances_border = True
     if compute_distances_border:
         print "Computing the distances to the borders"
         radius_beam = 1. #deg
@@ -184,7 +184,7 @@ def main():
     #  Densities and Nearby   ####
     # Neighbours computation: ####
     ##############################
-    compute_densities_and_NN = False
+    compute_densities_and_NN = True
     if compute_densities_and_NN:
         sky_objects, densities_table = compute_densities(sky_objects, hfactor)
     else:
@@ -389,7 +389,7 @@ def open_lightcone(file_number):
     if not os.path.exists(plot_directory) : os.mkdir(plot_directory)
 
     hdulist = fits.open(conepath + conename)
-    allcone = hdulist[1].data
+    allcone = Table(hdulist[1].data)
     cols = hdulist[1].columns
     # Some files have keyword GALAXYID, others have GALID: we check here what we want:
     if 'GALAXYID' in str(cols):
@@ -1639,8 +1639,11 @@ def compute_densities(sky_objects, hfactor):
     ### DENSITIES IN SPHERES - initialization
     # Makes a table of the radii on which computing the densities.
     # If you want to change teh radii, change search_radii and search_radii_names accordingly.
+    """ old serach radii values:
     search_radii = [0.5, 1., 2.5, 5., 10.] * hfactor #*u.Mpc
-    search_radii_names = ["DensityR0p5Mpc", "DensityR1Mpc", "DensityR2p5Mpc", "DensityR5Mpc", "DensityR10Mpc"]
+    search_radii_names = ["DensityR0p5Mpc", "DensityR1Mpc", "DensityR2p5Mpc", "DensityR5Mpc", "DensityR10Mpc"] """
+    search_radii = [0.2, 0.5, 1., 2., 5.] * hfactor #*u.Mpc
+    search_radii_names = ["DensityR0p2Mpc", "DensityR0p5Mpc", "DensityR1Mpc", "DensityR2Mpc", "DensityR5Mpc"]
     densities_table = Table([search_radii, search_radii_names], names=('search_radii', 'column_names'), meta={'name': 'table of the densities'})
     densities_table.sort('search_radii')
     ascii.write(densities_table, plot_directory+type_of_selection+'_radii_densities_table.txt', format=table_write_format)
