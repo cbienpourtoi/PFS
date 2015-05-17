@@ -64,11 +64,13 @@ from mpl_toolkits.mplot3d import Axes3D
 table_write_format = 'fixed_width'
 table_read_format = 'ascii.'+table_write_format
 
-#type_of_selection = "gaussian"
+type_of_selection = "gaussian"
 #type_of_selection = "Jonly"
 #type_of_selection = "COLSEL1"
 #type_of_selection = "COLSEL2"
-type_of_selection = "COLSEL3"
+
+#type_of_selection = "COLSEL3"
+
 #type_of_selection = "COLSEL4"
 #type_of_selection = "dropout"
 #type_of_selection = "simple"
@@ -119,7 +121,6 @@ def main():
     #########################
     file_number = 1
     open_lightcone(file_number)
-
 
 
     ##########################
@@ -190,6 +191,8 @@ def main():
     else:
         sky_objects = Table.read(plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_read_format)
         densities_table = Table.read(plot_directory+type_of_selection+'_radii_densities_table.txt', format=table_read_format)
+
+    sys.exit()
 
     ########################################
     ####     Looks for correlations     ####
@@ -855,7 +858,7 @@ def selec_gauss():
         # Objects are selected randomly depending on the probability Pz of the bin they belong to.
         mask_gaussian = np.array([], dtype=bool)
         for objects in cone:
-            proba = Pz[(np.where(objects.field('Z_APP') <= bin_edges))[0][0] - 1]
+            proba = Pz[(np.where(objects['Z_APP'] <= bin_edges))[0][0] - 1]
             mask_gaussian = np.append(mask_gaussian, [proba > random()])
 
         # gaussian distributed selection:
@@ -1649,10 +1652,13 @@ def compute_densities(sky_objects, hfactor):
     ascii.write(densities_table, plot_directory+type_of_selection+'_radii_densities_table.txt', format=table_write_format)
     max_radius = max(densities_table['search_radii'])
 
+
     # Adds density columns in the table of results
+    suffix_mass_selected = '_over10Ms' # Because we also want to select the densities with neighbors only over a certain mass, see R's mail May 12 2015, 10:30 "density of neighbours that have M>10^10 Msun"
+    mass_limit_neig = 10.**10.
     for densities_row in densities_table:
         sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=densities_row['column_names']))
-
+        sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=densities_row['column_names']+suffix_mass_selected))
 
     ### NEAREST NEIGHBOURS - initialization
     N_nearest = [3, 5, 7, 9]
@@ -1663,6 +1669,7 @@ def compute_densities(sky_objects, hfactor):
     N_nearest_table = Table([N_nearest, N_nearest_names], names=('N_nearest', 'column_names'), meta={'name': 'table of the nearest neighbours'})
     N_nearest_table.sort('N_nearest')
     N_max = max(N_nearest_table['N_nearest'])
+
 
     for N_nearest_row in N_nearest_table:
         sky_objects.add_column(Column(data=np.zeros(shape=(len(sky_objects))), name=N_nearest_row['column_names']))
@@ -1713,6 +1720,12 @@ def compute_densities(sky_objects, hfactor):
             # Get densities inside each sphere inside the cube
             for densities_row in densities_table:
                 galaxy[densities_row["column_names"]] = len(np.where(objects_in_cube["distances"] <= densities_row["search_radii"])[0])
+                #print "x"
+                #print len(np.where(objects_in_cube["distances"] <= densities_row["search_radii"])[0])
+                objects_in_cube_mass_limit = objects_in_cube[np.where(objects_in_cube["STELLARMASS"] >= mass_limit_neig)]
+                galaxy[densities_row["column_names"]+suffix_mass_selected] = len(np.where(objects_in_cube_mass_limit["distances"] <= densities_row["search_radii"])[0])
+                #print len(np.where(objects_in_cube_mass_limit["distances"] <= densities_row["search_radii"])[0])
+                #print objects_in_cube_mass_limit["STELLARMASS"]
 
 
             # Order and get Nth nearby object
@@ -1726,6 +1739,7 @@ def compute_densities(sky_objects, hfactor):
 
         print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
+        print sky_objects
 
         ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_write_format)
 
@@ -1745,6 +1759,8 @@ def compute_densities(sky_objects, hfactor):
     savemyplot(fig, "Densities")
     plt.close()
     """
+
+
 
     ### NEAREST NEIGHBOURS - computation
     # 2nd loop to get the nearest neighbours that I did not get in the first loop.
@@ -1772,6 +1788,8 @@ def compute_densities(sky_objects, hfactor):
         print "I now have "+str(np.count_nonzero(sky_objects[N_nearest_table[-1]["column_names"]]))+ " distances for the "+str(N_nearest_table[-1]["N_nearest"])+"th nearest neighbour, to be compared with the total number of objects: "+str(len(sky_objects))
 
         ascii.write(sky_objects, plot_directory+type_of_selection+'_selection_with_densities.txt', format=table_write_format)
+
+    sky_objects.write(plot_directory+type_of_selection+'_selection_with_densities.fits', overwrite=True)
 
     print strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
