@@ -14,6 +14,7 @@ from matplotlib import rcParams
 import os
 
 selection = "COLSEL3"
+#selection = "gaussian"
 dir = "plots/planck1_m05_002_igm1_nov7/"+selection+"/"
 catname = selection+"_selection_with_densities"
 dirplus = dir+"proposal/"
